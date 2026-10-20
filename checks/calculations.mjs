@@ -1,0 +1,27 @@
+import {loadModule} from './load-module.mjs';
+import fs from 'node:fs';
+import ts from 'typescript';
+import assert from 'node:assert/strict';
+const {payrollNet,gratuity,fmtDate,modules,daysToExpiry,expiryStatus,documentFields}=await loadModule('lib/hr.ts');
+assert.equal(payrollNet({basic:3000,allowances:1000,additions:250,deductions:125}),4125);
+assert.equal(payrollNet({basic:'3000',allowances:'1000'}),4000);
+assert.equal(gratuity(3000,'2025-01-01','2025-06-30',0).amount,0);
+assert.equal(gratuity(3000,'2025-01-01','2025-12-31',0).amount,2100);
+assert.equal(gratuity(3000,'2025-01-01','2025-12-31',1).amount,0);
+assert.equal(gratuity(3000,'2000-01-01','2060-01-01',0).amount,72000);
+assert.throws(()=>gratuity(3000,'2026-01-01','2025-01-01',0));
+assert.equal(fmtDate('2026-10-08'),'08/10/2026');
+assert.deepEqual(Object.keys(modules).sort(),['documentRenewals','announcements','helpDesk','resignations','finalSettlements','employees','attendance','corrections','certificateRequests','letters','shifts','leave','payroll','adjustments','documents','departments','assets','recruitment','performance','disciplinary','devices','settings'].sort());
+console.log('Payroll, gratuity boundaries, date format and module configuration: passed.');
+
+assert.equal(daysToExpiry('2026-10-08','2026-10-08'),0);
+assert.equal(daysToExpiry('2026-10-07','2026-10-08'),-1);
+assert.equal(daysToExpiry('2026-11-07','2026-10-08'),30);
+assert.equal(expiryStatus({expiry:'2026-10-07',status:'Valid'},'2026-10-08'),'Expired');
+assert.equal(expiryStatus({expiry:'2026-10-08'},'2026-10-08'),'Expires today');
+assert.equal(expiryStatus({expiry:'2026-10-18',reminderDays:7},'2026-10-08'),'Valid');
+assert.equal(expiryStatus({expiry:'2026-10-18',reminderDays:15},'2026-10-08'),'Expiring soon');
+assert.ok(documentFields('Visa').some(f=>f.key==='uid'));
+assert.ok(!documentFields('Passport').some(f=>f.key==='uid'));
+assert.ok(documentFields('Insurance').some(f=>f.key==='coverage'));
+console.log('Expiry dates, overdue/today boundaries, individual reminders and document-specific fields: passed.');

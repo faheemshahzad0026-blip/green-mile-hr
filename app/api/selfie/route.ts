@@ -1,0 +1,4 @@
+import {env} from 'cloudflare:workers';
+import {getChatGPTUser} from '../../hr-auth';
+export const dynamic='force-dynamic';
+export async function GET(request:Request){const u=await getChatGPTUser();if(!u)return new Response('Sign in first.',{status:401});const key=new URL(request.url).searchParams.get('key')||'';if(!key.startsWith('selfies/'+u.userId+'/'))return new Response('Not found',{status:404});const row=await env.DB!.prepare("SELECT id FROM hr_records WHERE owner=? AND kind='attendance' AND (json_extract(data,'$.checkInSelfie')=? OR json_extract(data,'$.checkOutSelfie')=?) LIMIT 1").bind(u.userId,key,key).first();if(!row)return new Response('Not found',{status:404});const photo=await env.BUCKET!.get(key);if(!photo)return new Response('Not found',{status:404});return new Response(photo.body,{headers:{'Content-Type':'image/jpeg','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});}

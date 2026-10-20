@@ -1,0 +1,4 @@
+export const expiryGroups=[['all','All documents'],['expired','Expired'],['week','0–7 days'],['month','8–30 days'],['twoMonths','31–60 days'],['later','Over 60 days'],['unknown','No valid expiry']] as const;
+export function expiryDays(expiry:any,currentDay:string){if(typeof expiry!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(expiry))return null;const n=Date.parse(expiry+'T00:00:00Z');if(!Number.isFinite(n)||new Date(n).toISOString().slice(0,10)!==expiry)return null;return Math.round((n-Date.parse(currentDay+'T00:00:00Z'))/86400000);}
+export function expiryGroup(days:number|null){return days===null?'unknown':days<0?'expired':days<=7?'week':days<=30?'month':days<=60?'twoMonths':'later';}
+export function expiryText(days:number|null){return days===null?'No valid expiry date':days<0?`${-days} days overdue`:days===0?'Expires today':`${days} days left`;}

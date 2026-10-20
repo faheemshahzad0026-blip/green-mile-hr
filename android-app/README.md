@@ -1,0 +1,16 @@
+# Green Mile Attendance Android APK
+A signed Android application (package net.greenmile.attendance, version 1.1.0, minimum Android 8/API 26, target API 35). It opens the dedicated employee attendance gateway in a restricted WebView. Employee ID and six-digit PIN logins are enabled in the admin HR Employee app access page.
+
+Camera permission is used only for selfie capture, and precise/coarse foreground location permissions are used when submitting attendance. No microphone, background location, storage, contacts or SMS permissions are requested. The APK has no admin service token or bridge secret. TLS is required, cleartext and mixed content are disabled, navigation is restricted to the employee gateway origin, file/content access is disabled and WebView debugging is disabled. Android app backup is disabled.
+
+The employee gateway requires internet; code updates to its web UI are served centrally. This APK is a WebView app, not an offline native HR database or Play Store release. Its signature and package were checked; no physical phone or emulator run was performed. Front camera, GPS and precise-location behavior must be tested on the user's phone. Selfies are photo evidence, not face recognition/liveness. Device-reported GPS may be spoofed.
+
+Install the delivered APK, allow installation from the browser/file app when Android asks, open Green Mile HR, use the ID/PIN provided by the admin, allow camera and location when requested, take a fresh selfie and tap Check in or Check out. A fresh selfie is required for each punch. If camera permissions are denied, enable Camera in Android Settings > Apps > Green Mile Attendance > Permissions. The same applies to Location. Update Android System WebView if camera APIs are unavailable.
+
+Build using Android SDK platform 35 and build-tools 35.0.0 plus Java 17/JDK, or Eclipse ECJ as a compiler fallback. Set GREEN_MILE_ANDROID_SDK, GREEN_MILE_SIGNING_KEY and GREEN_MILE_KEY_PASSWORD; optionally GREEN_MILE_ECJ_JAR. Run bash build.sh. Preserve the signing key for future in-place updates; it is intentionally excluded from Git and source archives.
+
+Version 1.1 adds a public direct APK download at the employee portal, own profile/attendance/leave/approved payroll/adjustments/documents/shifts/assets views with server-side employee and owner filtering and 20-record pages. Draft payroll and admin notes remain private. HR uses incremental 15-second sync while visible; successful mobile punches already save directly to the same database. PIN provisioning shows the entered PIN once; no default PIN or readable PIN storage exists.
+
+Night shifts: manual attendance infers the following checkout date when the checkout clock time is earlier than check-in, with an optional explicit checkout date. Server punches complete an open shift from today or yesterday and preserve the check-in date, selfie and GPS; checkout receives its actual Dubai date. Durations must be non-negative and at most 24 hours. Longer or older missed checkouts require admin review. This is not automatic overtime or payroll calculation. Reopen the existing APK for the updated portal.
+
+Version 1.2 adds bounded PDF export through a native system file picker and temporary read-only PDF sharing. No storage permission is required. Install over v1.1 using the same signing key. Device testing remains required.

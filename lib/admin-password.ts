@@ -1,0 +1,7 @@
+export const SESSION_COOKIE='gm_hr_session';
+export function validUsername(value:string){return /^[a-zA-Z0-9._-]{3,40}$/.test(value);}
+export function validPassword(value:string){return value.length>=1&&value.length<=128;}
+export async function digest(value:string){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(x=>x.toString(16).padStart(2,'0')).join('');}
+export async function passwordHash(password:string,salt:string){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},key,256);return Array.from(new Uint8Array(bits)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+export function sameHash(a:string,b:string){let difference=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)difference|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return difference===0;}
+export async function ensureAdminLogin(db:any){await db.batch([db.prepare('CREATE TABLE IF NOT EXISTS hr_admin_login(owner TEXT PRIMARY KEY,username TEXT NOT NULL,salt TEXT NOT NULL,password_hash TEXT NOT NULL,failed INTEGER NOT NULL DEFAULT 0,locked_until TEXT)'),db.prepare('CREATE TABLE IF NOT EXISTS hr_admin_sessions(token_hash TEXT PRIMARY KEY,owner TEXT NOT NULL,expires TEXT NOT NULL)')]);}

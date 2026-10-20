@@ -1,0 +1,8 @@
+export const requestLabels:Record<string,string>={leave:'Leave request',corrections:'Attendance correction',certificateRequests:'Certificate request',helpDesk:'HR help request',resignations:'Resignation request'};
+export const requestWhere="(r.kind IN ('leave','corrections','certificateRequests','resignations') AND json_extract(r.data,'$.status')='Pending' OR r.kind='helpDesk' AND json_extract(r.data,'$.status') IN ('Pending','In progress'))";
+export async function adminRequestNotifications(db:any,owner:string){
+ const counts=await db.prepare('SELECT r.kind,COUNT(*) AS count FROM hr_records r WHERE r.owner=? AND '+requestWhere+' GROUP BY r.kind').bind(owner).all();
+ const rows=await db.prepare("SELECT r.id,r.kind,r.data,r.created_at,r.updated_at,e.data AS employee_data,c.code FROM hr_records r LEFT JOIN hr_records e ON e.owner=r.owner AND e.kind='employees' AND CAST(e.id AS TEXT)=CAST(json_extract(r.data,'$.employee') AS TEXT) LEFT JOIN employee_code_registry c ON c.employee_id=e.id WHERE r.owner=? AND "+requestWhere+' ORDER BY r.created_at DESC,r.id DESC LIMIT 50').bind(owner).all();
+ const groups=counts.results.map((r:any)=>({kind:r.kind,label:requestLabels[r.kind],count:Number(r.count)}));
+ return {total:groups.reduce((n:number,r:any)=>n+r.count,0),groups,items:rows.results.map((r:any)=>({record:{...JSON.parse(r.data),id:r.id,kind:r.kind,createdAt:r.created_at,updatedAt:r.updated_at},label:requestLabels[r.kind],employeeName:r.employee_data?JSON.parse(r.employee_data).name:'Employee record unavailable',employeeCode:r.code?String(r.code):'',createdAt:r.created_at})),checkedAt:new Date().toISOString()};
+}

@@ -1,0 +1,41 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';
+const load=(f,deps,names)=>new Function(...Object.keys(deps),ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace(/^import .*;\n/gm,'').replace(/export /g,'')+';return {'+names+'}')(...Object.values(deps));
+const sql=new DatabaseSync(':memory:');for(const f of fs.readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort())sql.exec(fs.readFileSync('drizzle/'+f,'utf8'));sql.exec('CREATE TABLE employee_code_registry(employee_id INTEGER PRIMARY KEY,code INTEGER UNIQUE)');
+const db={prepare(q){let args=[];return {bind(...v){args=v;return this},async first(){return sql.prepare(q).get(...args)||null},async all(){return {results:sql.prepare(q).all(...args),meta:{changes:Number(sql.prepare('SELECT changes() n').get().n)}}}}},async batch(ss){sql.exec('BEGIN');try{const out=[];for(const s of ss)out.push(await s.all());sql.exec('COMMIT');return out}catch(e){sql.exec('ROLLBACK');throw e}}};
+
+const a=load('lib/announcements.ts',{},'visibleAnnouncement,saveAnnouncement,mobileAnnouncements,acknowledgeAnnouncement');
+const now='2026-10-09T15:00:00Z',date='2026-10-09',bucket={async put(){}};
+const data={title:'Holiday',body:'Office closed tomorrow.',date,audience:'All employees',department:'',expiry:'2026-10-10',status:'Published'};
+let saved=await a.saveAnnouncement(db,bucket,'A',{action:'create'},{...data},now);const id=saved.row.id,first=JSON.parse(saved.row.data);
+assert.equal((await a.mobileAnnouncements(db,'A',1,'Operations',date)).records.length,1);
+assert.equal((await a.mobileAnnouncements(db,'B',1,'Operations',date)).records.length,0);
+await a.acknowledgeAnnouncement(db,'A',1,'Operations',{id,revision:first.revision,employee:2},date,now);
+await a.acknowledgeAnnouncement(db,'A',1,'Operations',{id,revision:first.revision},date,now);
+assert.equal(sql.prepare("SELECT COUNT(*) n FROM hr_records WHERE kind='announcementReads'").get().n,1);
+assert.ok((await a.mobileAnnouncements(db,'A',1,'Operations',date)).records[0].acknowledgedAt);
+assert.equal((await a.mobileAnnouncements(db,'A',2,'Operations',date)).records[0].acknowledgedAt,'');
+saved=await a.saveAnnouncement(db,bucket,'A',{action:'update',id},{...data,body:'Updated message'},now);const second=JSON.parse(saved.row.data);
+assert.notEqual(second.revision,first.revision);assert.equal((await a.mobileAnnouncements(db,'A',1,'Operations',date)).records[0].acknowledgedAt,'');
+await assert.rejects(()=>a.acknowledgeAnnouncement(db,'A',1,'Operations',{id,revision:first.revision},date,now));
+await assert.rejects(()=>a.acknowledgeAnnouncement(db,'B',1,'Operations',{id,revision:second.revision},date,now));
+assert.equal((await a.mobileAnnouncements(db,'A',1,'Operations','2026-10-11')).records.length,0);
+assert.equal((await a.mobileAnnouncements(db,'A',1,'Operations','2026-10-08')).records.length,0);
+await assert.rejects(()=>a.saveAnnouncement(db,bucket,'A',{action:'create'},{...data,expiry:'2026-10-08'},now));
+sql.prepare("INSERT INTO hr_records(owner,kind,data,created_at,updated_at) VALUES('A','departments',?,?,?)").run(JSON.stringify({name:'Operations'}),now,now);
+saved=await a.saveAnnouncement(db,bucket,'A',{action:'update',id},{...data,audience:'Department',department:'Operations'},now);const third=JSON.parse(saved.row.data);
+assert.equal((await a.mobileAnnouncements(db,'A',1,'Sales',date)).records.length,0);
+await assert.rejects(()=>a.acknowledgeAnnouncement(db,'A',1,'Sales',{id,revision:third.revision},date,now));
+await assert.rejects(()=>a.saveAnnouncement(db,{async put(){throw Error('Backup failed')}},'A',{action:'delete',id},{},now));
+assert.equal((await a.mobileAnnouncements(db,'A',1,'Operations',date)).records.length,1);
+await a.saveAnnouncement(db,bucket,'A',{action:'update',id},{...data,status:'Draft'},now);assert.equal((await a.mobileAnnouncements(db,'A',1,'Operations',date)).records.length,0);
+await a.saveAnnouncement(db,bucket,'A',{action:'delete',id},{},now);assert.equal(sql.prepare("SELECT COUNT(*) n FROM hr_records WHERE kind='announcements'").get().n,0);
+console.log('PASS: real SQLite notice create/edit/delete, department and owner isolation, publish/expiry gates, session employee binding, duplicate acknowledgement, revision reset, stale revision denial and backup failure.');
+
+const hr=load('lib/hr.ts',{},'modules,payrollNet');const env={DB:db,BUCKET:bucket};
+const admin=load('app/api/hr/route.ts',{...hr,...a,env,getChatGPTUser:async()=>({userId:'A'})},'POST');
+async function post(body){const r=await admin.POST(new Request('https://test.local/api/hr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:r.status,data:await r.json()}}
+let response=await post({action:'create',kind:'announcements',data});assert.equal(response.status,200,JSON.stringify(response.data));const apiID=response.data.record.id;
+response=await post({action:'update',kind:'announcements',id:apiID,data:{...data,body:'API edit'}});assert.equal(response.status,200,JSON.stringify(response.data));
+response=await post({action:'delete',kind:'announcements',id:apiID});assert.equal(response.status,200,JSON.stringify(response.data));
+assert.equal((await post({action:'create',kind:'announcementReads',data:{employee:'2'}})).status,400);
+console.log('PASS: HR API routing and read receipts cannot be forged through admin CRUD.');

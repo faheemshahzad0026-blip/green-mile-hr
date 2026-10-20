@@ -1,0 +1,14 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+const source=ts.transpileModule(fs.readFileSync('lib/attendance-ledger.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {monthlyAttendanceLedger,ledgerValues}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const emp={id:1,code:'10000',kind:'employees',name:'Test',status:'Active',joining:'2026-01-01'};
+const att=(date,status='Present',id=2)=>({id,kind:'attendance',employee:'1',date,status});
+const leave=(from,to,type='Casual',status='Approved')=>({id:90,kind:'leave',employee:1,from,to,type,status});
+let records=[emp,...Array.from({length:29},(_,i)=>att('2026-09-'+String(i+1).padStart(2,'0'),'Present',i+2)),leave('2026-09-30','2026-09-30')];
+let r=monthlyAttendanceLedger(records,'2026-09','2026-10-09');assert.equal(r.days.length,30);assert.deepEqual(r.rows[0].totals,{present:29,leave:1,absent:0,off:0,missing:0,upcoming:0,na:0,total:30});assert.equal(r.rows[0].cells[29].code,'C');assert.equal(ledgerValues(r.rows[0]).length,40);
+r=monthlyAttendanceLedger([emp,att('2026-10-01','Late'),att('2026-10-02','Absent'),leave('2026-10-03','2026-10-03','Sick'),leave('2026-10-04','2026-10-04','Annual'),leave('2026-10-05','2026-10-05','Casual','Pending')],'2026-10','2026-10-09');assert.deepEqual(r.rows[0].cells.slice(0,5).map(c=>c.code),['P','A','S','L','—']);assert.equal(r.rows[0].totals.upcoming,22);assert.equal(r.rows[0].totals.missing,5);assert.equal(r.rows[0].totals.total,31);
+r=monthlyAttendanceLedger([emp,att('2026-10-03'),leave('2026-10-03','2026-10-03','Sick')],'2026-10','2026-10-09');assert.equal(r.rows[0].cells[2].code,'P');assert.equal(r.rows[0].totals.leave,0);
+r=monthlyAttendanceLedger([{...emp,joining:'2026-10-05'},{id:91,kind:'shifts',employee:1,effective:'2026-01-01',restDay:'Friday'}],'2026-10','2026-10-09');assert.equal(r.rows[0].totals.na,4);assert.equal(r.rows[0].cells[8].code,'WO');assert.equal(Object.entries(r.rows[0].totals).filter(([k])=>k!=='total').reduce((n,[k,v])=>n+v,0),31);
+assert.equal(monthlyAttendanceLedger([emp],'2028-02','2028-03-01').days.length,29);assert.equal(monthlyAttendanceLedger([emp],'2027-02','2027-03-01').days.length,28);
+assert.deepEqual(monthlyAttendanceLedger(records,'invalid','2026-10-09'),{days:[],rows:[]});
+assert.deepEqual(records[0],emp);console.log('Ledger: 29 present + 1 leave, all codes, pending leave, future dates, precedence, joining, weekly off, month lengths and totals passed.');

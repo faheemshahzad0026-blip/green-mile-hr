@@ -1,0 +1,26 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {routeBindings} from './load-module.mjs';
+const sql=new DatabaseSync(':memory:');for(const f of fs.readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort())sql.exec(fs.readFileSync('drizzle/'+f,'utf8'));
+const db={prepare(query){let args=[];const s={bind(...v){args=v;return s},async first(){return sql.prepare(query).get(...args)||null},async all(){return {results:sql.prepare(query).all(...args),meta:{changes:Number(sql.prepare('SELECT changes() n').get().n)}}},async run(){return s.all()}};return s},async batch(statements){sql.exec('BEGIN');try{const r=[];for(const s of statements)r.push(await s.all());sql.exec('COMMIT');return r}catch(e){sql.exec('ROLLBACK');throw e}}};
+const at='2026-10-10T15:00:00.000Z';
+const insert=(owner,kind,data)=>Number(sql.prepare('INSERT INTO hr_records(owner,kind,data,created_at,updated_at) VALUES(?,?,?,?,?)').run(owner,kind,JSON.stringify(data),at,at).lastInsertRowid);
+const employee=insert('A','employees',{name:'Employee A',basic:2400,status:'Active',iban:'AE-OWN',profilePhoto:'private/photo-key'});
+const salary=insert('A','payroll',{employee:String(employee),month:'2026-10',basic:2400,net:2400,status:'Paid',paymentReference:'PAY-001',paidDate:'2026-10-10'});
+insert('B','employees',{name:'Private B',basic:9876,status:'Active'});
+for(let i=0;i<105;i++)sql.prepare('INSERT INTO hr_audit(owner,action,kind,record_id,at) VALUES(?,?,?,?,?)').run('A','EDIT','payroll',String(salary),at);
+sql.prepare('INSERT INTO hr_audit(owner,action,kind,record_id,at) VALUES(?,?,?,?,?)').run('B','PRIVATE','employees','3',at);
+let owner='A';const bindings=await routeBindings('app/api/hr/route.ts',{env:{DB:db},getChatGPTUser:async()=>owner?{userId:owner}:null});
+const code=ts.transpileModule(fs.readFileSync('app/api/hr/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace(/^import .*;\n/gm,'').replace(/export /g,'');
+const {GET}=new Function(...Object.keys(bindings),code+';return {GET};')(...Object.values(bindings));
+const get=async()=>{const response=await GET(new Request('https://test.local/api/hr?backup=1'));return {response,data:await response.json()}};
+let r=await get();assert.equal(r.response.status,200);assert.equal(r.response.headers.get('Cache-Control'),'no-store');assert.equal(r.data.backup.records.length,2);assert.equal(r.data.backup.records.find(x=>x.id===employee).code,'10000');assert.equal(r.data.backup.records.find(x=>x.id===salary).paymentReference,'PAY-001');assert.equal(r.data.backup.audit.length,100);assert.ok(r.data.backup.audit.every(x=>x.owner==='A'));assert.ok(!JSON.stringify(r.data).includes('Private B'));
+// Simulate changes after a browser already loaded the old list.
+sql.prepare('UPDATE hr_records SET data=? WHERE id=?').run(JSON.stringify({name:'Updated on another device',basic:2600,status:'Active'}),employee);
+const newRecord=insert('A','documents',{employee:String(employee),type:'Passport',number:'NEW-DOC',expiry:'2028-10-10'});
+sql.prepare('DELETE FROM hr_records WHERE id=?').run(salary);
+const before=sql.prepare('SELECT COUNT(*) n FROM hr_records').get().n,changes=sql.prepare('SELECT total_changes() n').get().n;
+r=await get();assert.equal(r.data.backup.records.length,2);assert.equal(r.data.backup.records.find(x=>x.id===employee).basic,2600);assert.ok(r.data.backup.records.some(x=>x.id===newRecord));assert.ok(!r.data.backup.records.some(x=>x.id===salary));assert.equal(sql.prepare('SELECT COUNT(*) n FROM hr_records').get().n,before);assert.equal(sql.prepare('SELECT total_changes() n').get().n,changes,'export must not mutate records');
+owner='B';r=await get();assert.equal(r.data.backup.records.length,1);assert.equal(r.data.backup.audit.length,1);assert.equal(r.data.backup.records[0].name,'Private B');
+owner=null;r=await get();assert.equal(r.response.status,401);owner='A';
+sql.exec('BEGIN');for(let i=0;i<9999;i++)insert('A','assets',{employee:String(employee),name:'Asset '+i});sql.exec('COMMIT');
+r=await get();assert.equal(r.response.status,409);assert.match(r.data.error,/10,000-record backup limit/);assert.equal(r.data.backup,undefined,'oversized backup must fail rather than export a truncated file');
+console.log('PASS: actual backup API exports fresh server additions/edits/deletions, exact owner scope, current employee code, saved finance metadata, latest 100 audits, no-store, sign-in, no mutation and refuses incomplete oversized exports.');

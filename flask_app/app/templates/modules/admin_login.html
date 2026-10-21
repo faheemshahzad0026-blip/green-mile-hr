@@ -1,0 +1,19 @@
+{% extends "layout_admin.html" %}
+{% block title %}Account · Green Mile HR{% endblock %}
+{% block heading %}Account &amp; password{% endblock %}
+{% block description %}Update the details shown in your header profile menu.{% endblock %}
+{% block content %}
+<section class="card admin-login-settings">
+  <form method="post" style="padding:0 26px 26px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <label><span class="field-label">Username</span><input name="username" value="{{ current_user.username }}" required minlength="3" maxlength="40" placeholder="e.g. ahmed.khan"></label>
+      <label><span class="field-label">Email</span><input name="email" type="email" value="{{ current_user.email or '' }}" maxlength="160" placeholder="e.g. ahmed.khan@email.com"></label>
+      <label><span class="field-label">New password</span><input name="password" type="password" maxlength="128" placeholder="e.g. ••••••••"></label>
+      <label><span class="field-label">Confirm password</span><input name="confirm" type="password" maxlength="128" placeholder="e.g. ••••••••"></label>
+    </div>
+    <p class="admin-login-note">Your name and email appear in the header account dropdown.</p>
+    <button class="primary" type="submit">Save account</button>
+  </form>
+</section>
+{% endblock %}

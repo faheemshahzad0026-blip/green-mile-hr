@@ -1,0 +1,38 @@
+{% extends "layout_admin.html" %}
+{% block title %}End of service · Green Mile HR{% endblock %}
+{% block heading %}{{ meta.title }}{% endblock %}
+{% block description %}{{ meta.description }}{% endblock %}
+{% block content %}
+<section class="calculator card">
+  <h2>Gratuity calculator</h2>
+  <p>Guidance estimate using basic salary, 21 days per year for the first 5 years, then 30 days, capped at 24 months of basic salary. Requires at least one year of eligible service.</p>
+  <form method="get" class="form-grid" id="gratForm" onsubmit="event.preventDefault(); calc();">
+    <label>Basic monthly salary (AED)<input id="basic" type="number" step="0.01" required placeholder="e.g. 3500"></label>
+    <label>Joining date<input id="from" type="date" required placeholder="e.g. 15/03/2020"></label>
+    <label>Last working day<input id="to" type="date" required placeholder="e.g. 21/10/2026"></label>
+    <label>Unpaid absence days<input id="unpaid" type="number" min="0" value="0" placeholder="e.g. 0"></label>
+  </form>
+  <button class="primary" type="button" onclick="calc()">Calculate estimate</button>
+  <div class="calc-result" id="result" style="display:none">
+    <span>Estimated gratuity</span>
+    <strong id="amount">AED 0.00</strong>
+    <p id="meta"></p>
+    <small>Final settlement also requires outstanding salary, leave, deductions and company policy review.</small>
+  </div>
+</section>
+<script>
+function calc(){
+  const basic=+document.getElementById('basic').value||0;
+  const from=document.getElementById('from').value;
+  const to=document.getElementById('to').value;
+  const unpaid=+document.getElementById('unpaid').value||0;
+  const days=Math.floor((Date.parse(to)-Date.parse(from))/86400000)+1-unpaid;
+  if(!Number.isFinite(days)||days<0){alert('Enter valid service dates and unpaid days.');return;}
+  const years=days/365;
+  const amount=years<1?0:Math.min(basic*24, basic/30*(Math.min(years,5)*21+Math.max(years-5,0)*30));
+  document.getElementById('result').style.display='block';
+  document.getElementById('amount').textContent='AED '+amount.toLocaleString('en-AE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('meta').textContent=days+' eligible service days · '+years.toFixed(2)+' years';
+}
+</script>
+{% endblock %}

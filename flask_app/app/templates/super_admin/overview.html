@@ -1,0 +1,30 @@
+{% extends "layout_admin.html" %}
+{% block title %}All agencies · Green Mile HR{% endblock %}
+{% block heading %}All agencies data{% endblock %}
+{% block description %}Open any agency workspace. Super Admin can see every agency’s staff and employees.{% endblock %}
+{% block content %}
+<section class="card table-card">
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>AGENCY</th><th>ADMINS</th><th>STAFF</th><th>EMPLOYEES</th><th>STATUS</th><th class="actions">ACTIONS</th></tr></thead>
+      <tbody>
+      {% for row in stats %}
+        <tr>
+          <td>
+            <strong>{{ row.agency.name }}</strong><br>
+            <span style="color:#607451;font-size:12px">{{ row.agency.company_name }}</span>
+          </td>
+          <td>{{ row.admins }}</td>
+          <td>{{ row.staff }}</td>
+          <td>{{ row.employees }}</td>
+          <td><span class="badge {% if not row.agency.is_active %}red{% endif %}">{% if row.agency.is_active %}Active{% else %}Inactive{% endif %}</span></td>
+          <td><a class="primary" style="padding:8px 12px;font-size:12px" href="{{ url_for('super_admin.agency_view', agency_id=row.agency.id) }}">Open workspace</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">No agencies yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

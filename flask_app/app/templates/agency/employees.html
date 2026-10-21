@@ -1,0 +1,58 @@
+{% extends "layout_admin.html" %}
+{% block title %}Employees · Green Mile HR{% endblock %}
+{% block heading %}Employees{% endblock %}
+{% block description %}Register employees for {{ agency.company_name }}. They sign in with ID + PIN.{% endblock %}
+{% block heading_actions %}<span class="soft-badge">{{ employees|length }} record(s)</span>{% endblock %}
+{% block content %}
+<section class="card" style="margin-bottom:22px">
+  <div class="card-head"><div><h2>Register employee</h2><p>Employee ID is auto-assigned if left blank.</p></div></div>
+  <form method="post" class="form-body">
+    {{ form.hidden_tag() }}
+    <div class="form-grid">
+      <label><span class="field-label">Employee ID</span>{{ form.employee_code() }}</label>
+      <label><span class="field-label">Full name <em>*</em></span>{{ form.full_name() }}</label>
+      <label><span class="field-label">Phone</span>{{ form.phone() }}</label>
+      <label><span class="field-label">Email</span>{{ form.email() }}</label>
+      <label><span class="field-label">Designation</span>{{ form.designation() }}</label>
+      <label><span class="field-label">Department</span>{{ form.department() }}</label>
+      <label><span class="field-label">6-digit PIN <em>*</em></span>{{ form.pin(inputmode='numeric', maxlength=6) }}</label>
+    </div>
+    <div class="modal-foot" style="position:static;box-shadow:none;margin-top:18px;padding:0">
+      {{ form.submit(class_='primary') }}
+    </div>
+  </form>
+</section>
+<section class="card table-card">
+  <div class="table-toolbar">
+    <form class="search" method="get">
+      <span>⌕</span>
+      <input name="q" value="{{ q }}" placeholder="Search employees…">
+    </form>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>EMPLOYEE ID</th><th>NAME</th><th>DEPARTMENT</th><th>STATUS</th><th class="actions">ACTIONS</th></tr></thead>
+      <tbody>
+      {% for e in employees %}
+        <tr>
+          <td><strong>{{ e.employee_code }}</strong></td>
+          <td>{{ e.full_name }}</td>
+          <td>{{ e.department or '—' }}</td>
+          <td><span class="badge {% if not e.is_active %}red{% endif %}">{% if e.is_active %}Active{% else %}Off{% endif %}</span></td>
+          <td>
+            <div class="row-actions">
+              <form method="post" action="{{ url_for('agency.employee_toggle', employee_id=e.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" title="Toggle">{% if e.is_active %}Disable{% else %}Enable{% endif %}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5">No employees yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

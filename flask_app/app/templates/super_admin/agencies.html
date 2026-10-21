@@ -1,0 +1,38 @@
+{% extends "layout_admin.html" %}
+{% block title %}Agencies · Green Mile HR{% endblock %}
+{% block heading %}Agencies{% endblock %}
+{% block description %}Create agencies, set branding, and activate or deactivate access.{% endblock %}
+{% block heading_actions %}<a class="primary" href="{{ url_for('super_admin.agency_create') }}">+ Create agency</a>{% endblock %}
+{% block content %}
+<section class="card table-card">
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>AGENCY</th><th>COMPANY</th><th>SLUG</th><th>STATUS</th><th class="actions">ACTIONS</th></tr></thead>
+      <tbody>
+      {% for a in agencies %}
+        <tr>
+          <td>
+            <strong>{{ a.name }}</strong>
+          </td>
+          <td>{{ a.company_name }}</td>
+          <td>{{ a.slug }}</td>
+          <td><span class="badge {% if not a.is_active %}red{% endif %}">{% if a.is_active %}Active{% else %}Inactive{% endif %}</span></td>
+          <td>
+            <div class="row-actions" style="gap:10px;flex-wrap:wrap">
+              <a class="text-btn" href="{{ url_for('super_admin.agency_view', agency_id=a.id) }}">View data</a>
+              <a class="text-btn" href="{{ url_for('super_admin.agency_edit', agency_id=a.id) }}">Edit</a>
+              <form method="post" action="{{ url_for('super_admin.agency_toggle', agency_id=a.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="text-btn" type="submit">{% if a.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5">No agencies yet. Create the first one.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

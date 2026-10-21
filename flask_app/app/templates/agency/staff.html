@@ -1,0 +1,39 @@
+{% extends "layout_admin.html" %}
+{% block title %}Staff · Green Mile HR{% endblock %}
+{% block heading %}Staff{% endblock %}
+{% block description %}Create staff logins for {{ agency.company_name }}.{% endblock %}
+{% block content %}
+<section class="card admin-login-settings" style="max-width:780px;margin-bottom:22px">
+  <div class="card-head"><div><h2>Create staff</h2><p>Username and password for this agency only.</p></div></div>
+  <form method="post" style="padding:0 26px 26px">
+    {{ form.hidden_tag() }}
+    <div class="form-grid">
+      <label><span class="field-label">Username <em>*</em></span>{{ form.username() }}</label>
+      <label><span class="field-label">Full name</span>{{ form.full_name() }}</label>
+      <label><span class="field-label">Password <em>*</em></span>{{ form.password() }}</label>
+      <label><span class="field-label">Confirm password <em>*</em></span>{{ form.password_confirm() }}</label>
+    </div>
+    <div style="margin-top:18px">{{ form.submit(class_='primary') }}</div>
+  </form>
+</section>
+<section class="card table-card">
+  <div class="card-head"><div><h2>Team for {{ agency.company_name }}</h2><p>Agency admins and staff</p></div></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>USERNAME</th><th>NAME</th><th>ROLE</th><th>STATUS</th></tr></thead>
+      <tbody>
+      {% for u in staff %}
+        <tr>
+          <td><strong>{{ u.username }}</strong></td>
+          <td>{{ u.full_name or '—' }}</td>
+          <td>{{ u.role.replace('_', ' ') }}</td>
+          <td><span class="badge {% if not u.is_active %}red{% endif %}">{% if u.is_active %}Active{% else %}Off{% endif %}</span></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4">No staff yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "layout_employee.html" %}
+{% block title %}Dashboard · Green Mile HR{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block heading %}{{ employee.full_name }}{% endblock %}
+{% block description %}Employee ID {{ employee.employee_code }}{% if agency %} · {{ agency.company_name }}{% endif %}{% endblock %}
+{% block content %}
+<div class="stats emp-quota-stats">
+  <div class="stat">
+    <div class="stat-top"><span>Annual leave left</span></div>
+    <div class="stat-value">{{ quotas.annual_remaining }}</div>
+    <div class="stat-sub">
+      {% if quotas.available %}
+        used {{ quotas.annual_used }} · booked {{ quotas.annual_booked }} · of {{ quotas.annual_quota }}
+      {% else %}
+        {{ quotas.message or 'Set joining date with HR' }}
+      {% endif %}
+    </div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span>Sick leave left</span></div>
+    <div class="stat-value">{{ quotas.sick_remaining }}</div>
+    <div class="stat-sub">of {{ quotas.sick_quota }} days · used {{ quotas.sick_used }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span>Pending leave</span></div>
+    <div class="stat-value">{{ quotas.pending_count }}</div>
+    <div class="stat-sub">{% if quotas.cycle_start %}Cycle {{ quotas.cycle_start }} → {{ quotas.cycle_end }}{% else %}awaiting HR{% endif %}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span>Department</span></div>
+    <div class="stat-value" style="font-size:20px">{{ employee.department or '—' }}</div>
+    <div class="stat-sub">{{ employee.designation or '—' }}</div>
+  </div>
+</div>
+
+<div class="emp-dash-grid">
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>HR announcements</h2>
+        <p>Published notices for you — acknowledge after reading.</p>
+      </div>
+      <a class="text-btn" href="{{ url_for('employee.announcements') }}">View all</a>
+    </div>
+    {% if announcements %}
+    <ul class="emp-announce-list">
+      {% for a in announcements %}
+      {% set rev = a.get('revision') or '' %}
+      {% set ack_key = a.id|string ~ ':' ~ rev %}
+      <li>
+        <strong>{{ a.get('title') or 'Notice' }}</strong>
+        <span>{{ a.get('date') or '' }}{% if acks is defined and acks.get(ack_key) %} · Acknowledged{% endif %}</span>
+        <p>{{ (a.get('body') or '')[:160] }}{% if (a.get('body') or '')|length > 160 %}…{% endif %}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty" style="padding:28px"><p>No announcements right now.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>Quick actions</h2>
+        <p>Leave, shifts and documents.</p>
+      </div>
+    </div>
+    <div class="emp-quick-actions">
+      <a class="primary" href="{{ url_for('employee.leave') }}">Apply leave</a>
+      <a class="secondary" href="{{ url_for('employee.shifts') }}">My shifts</a>
+      <a class="secondary" href="{{ url_for('employee.documents') }}">My documents</a>
+      <a class="secondary" href="{{ url_for('employee.download_apk_page') }}">Attendance app</a>
+    </div>
+    {% if shift %}
+    <div class="emp-mini-block">
+      <h3>Current shift</h3>
+      <p><strong>{{ shift.get('name') or 'Shift' }}</strong> · {{ shift.get('start') or '—' }} – {{ shift.get('end') or '—' }} · Rest {{ shift.get('restDay') or '—' }}</p>
+      <p style="margin-top:6px;font-size:12px;color:#5d7150">Effective {{ shift.get('effective') or '—' }}</p>
+    </div>
+    {% endif %}
+    {% if docs %}
+    <div class="emp-mini-block">
+      <h3>Recent documents</h3>
+      <ul>
+        {% for d in docs %}
+        <li>{{ d.get('type') or 'Document' }} · {{ d.get('status') or '—' }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

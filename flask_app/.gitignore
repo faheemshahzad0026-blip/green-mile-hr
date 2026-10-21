@@ -1,0 +1,16 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+instance/
+*.db
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+app/static/apk/*
+!app/static/apk/.gitkeep
+!app/static/apk/README.txt
+migrations/versions/*.pyc
+.DS_Store

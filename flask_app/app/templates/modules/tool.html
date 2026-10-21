@@ -1,0 +1,20 @@
+{% extends "layout_admin.html" %}
+{% block title %}{{ meta.title }} · Green Mile HR{% endblock %}
+{% block heading %}{{ meta.title }}{% endblock %}
+{% block description %}{{ meta.description }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="info-card" style="margin:0">
+    <div>
+      <strong>{{ meta.title }}</strong>
+      <p>
+        This module is available in your workspace navigation.
+        {% if kind in ['attendanceLedger','leaveBalances','salaryPayments','loanReport','exitReport','monthlySummary','reports','dataQuality','employeeFile','mobile','adminMobile'] %}
+        Advanced calculations and branded exports from the original Green Mile app are being connected next; you can already manage related records from the matching modules (Attendance, Leave, Payroll, Documents, Resignations, etc.).
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="card-foot">Agency: {{ agency.company_name }}</div>
+</section>
+{% endblock %}

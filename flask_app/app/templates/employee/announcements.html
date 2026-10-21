@@ -1,0 +1,48 @@
+{% extends "layout_employee.html" %}
+{% block title %}Announcements · Green Mile HR{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+{% block heading %}Announcements{% endblock %}
+{% block description %}Notices published by HR. Acknowledge each notice after you read it (same as the old app).{% endblock %}
+{% block content %}
+{% if announcements %}
+<div class="emp-announce-feed">
+  {% for a in announcements %}
+  {% set rev = a.get('revision') or '' %}
+  {% set ack_key = a.id|string ~ ':' ~ rev %}
+  {% set acked = acks.get(ack_key) if acks is defined else None %}
+  <article class="card emp-announce-card">
+    <header>
+      <span class="eyebrow">{{ a.get('date') or 'Notice' }}{% if a.get('expiry') %} · until {{ a.get('expiry') }}{% endif %}</span>
+      <h2>{{ a.get('title') or 'Announcement' }}</h2>
+      {% if a.get('audience') == 'Department' and a.get('department') %}
+      <p class="emp-announce-meta">For {{ a.get('department') }}</p>
+      {% else %}
+      <p class="emp-announce-meta">All employees</p>
+      {% endif %}
+    </header>
+    <div class="emp-announce-body">{{ a.get('body') or '' }}</div>
+    <footer class="emp-announce-foot">
+      {% if acked %}
+      <span class="soft-badge">Acknowledged {{ acked[:16] }}</span>
+      {% else %}
+      <form method="post" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="acknowledge">
+        <input type="hidden" name="id" value="{{ a.id }}">
+        <input type="hidden" name="revision" value="{{ rev }}">
+        <button class="primary" type="submit">Acknowledge</button>
+      </form>
+      {% endif %}
+    </footer>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<section class="card">
+  <div class="empty">
+    <h3>No announcements</h3>
+    <p>When HR publishes a notice, it will show here and in your notification bell.</p>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

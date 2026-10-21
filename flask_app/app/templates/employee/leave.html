@@ -1,0 +1,93 @@
+{% extends "layout_employee.html" %}
+{% block title %}Leave · Green Mile HR{% endblock %}
+{% block page_title %}Leave{% endblock %}
+{% block heading %}Leave{% endblock %}
+{% block description %}Anniversary-year annual balance (same rules as the old app). New requests start as Pending for HR.{% endblock %}
+{% block content %}
+<div class="stats emp-quota-stats">
+  <div class="stat">
+    <div class="stat-top"><span>Annual remaining</span></div>
+    <div class="stat-value">{{ quotas.annual_remaining }}</div>
+    <div class="stat-sub">
+      {% if quotas.available %}
+        used {{ quotas.annual_used }} · booked {{ quotas.annual_booked }} · pending days {{ quotas.annual_pending }} / {{ quotas.annual_quota }}
+      {% else %}
+        {{ quotas.message }}
+      {% endif %}
+    </div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span>Sick unused</span></div>
+    <div class="stat-value">{{ quotas.sick_remaining }}</div>
+    <div class="stat-sub">{{ quotas.sick_used }} / {{ quotas.sick_quota }} used</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span>Pending requests</span></div>
+    <div class="stat-value">{{ quotas.pending_count }}</div>
+    <div class="stat-sub">{% if quotas.cycle_start %}{{ quotas.cycle_start }} → {{ quotas.cycle_end }}{% else %}awaiting HR decision{% endif %}</div>
+  </div>
+</div>
+
+<section class="card" style="margin-bottom:22px">
+  <div class="card-head">
+    <div><h2>Apply for leave</h2><p>Cannot overlap another pending or approved request.</p></div>
+  </div>
+  <form method="post" class="record-form" style="padding:0 22px 22px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <label>
+        <span class="field-label">Leave type<em> *</em></span>
+        <select name="type" required>
+          {% for t in leave_types %}
+          <option value="{{ t }}" {% if t == 'Annual' %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span class="field-label">Start date<em> *</em></span>
+        <input type="date" name="from" required>
+      </label>
+      <label>
+        <span class="field-label">End date<em> *</em></span>
+        <input type="date" name="to" required>
+      </label>
+      <label style="grid-column:1/-1">
+        <span class="field-label">Reason<em> *</em></span>
+        <input type="text" name="reason" maxlength="2000" required placeholder="e.g. Family travel">
+      </label>
+    </div>
+    <div class="record-form-actions" style="margin-top:16px">
+      <button class="primary" type="submit">Submit leave request</button>
+    </div>
+  </form>
+</section>
+
+<section class="card table-card">
+  <div class="card-head">
+    <div><h2>My leave history</h2><p>Approved / booked annual days count against your cycle quota.</p></div>
+  </div>
+  {% if leaves %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>TYPE</th><th>FROM</th><th>TO</th><th>STATUS</th><th>SOURCE</th><th>REASON</th></tr>
+      </thead>
+      <tbody>
+        {% for r in leaves %}
+        <tr>
+          <td><strong>{{ r.get('type') or '—' }}</strong></td>
+          <td>{{ r.get('from') or '—' }}</td>
+          <td>{{ r.get('to') or '—' }}</td>
+          <td><span class="badge">{{ r.get('status') or '—' }}</span></td>
+          <td>{{ r.get('source') or 'HR' }}</td>
+          <td>{{ r.get('reason') or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><p>No leave requests yet.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

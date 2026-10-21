@@ -1,0 +1,57 @@
+{% extends "layout_employee.html" %}
+{% block title %}Shifts · Green Mile HR{% endblock %}
+{% block page_title %}Shifts{% endblock %}
+{% block heading %}Shifts &amp; schedules{% endblock %}
+{% block description %}Your working hours assigned by HR. Current shift = latest effective on or before today.{% endblock %}
+{% block content %}
+{% if current %}
+<section class="card" style="margin-bottom:18px">
+  <div class="card-head">
+    <div>
+      <h2>Current shift</h2>
+      <p>Active schedule for today</p>
+    </div>
+    <span class="soft-badge">Active</span>
+  </div>
+  <div class="employee-file-profile" style="padding-top:0">
+    <div><span>Shift</span><strong>{{ current.get('name') or '—' }}</strong></div>
+    <div><span>Hours</span><strong>{{ current.get('start') or '—' }} – {{ current.get('end') or '—' }}</strong></div>
+    <div><span>Break</span><strong>{% if current.get('breakMinutes') %}{{ current.get('breakMinutes') }} min{% else %}—{% endif %}</strong></div>
+    <div><span>Rest day</span><strong>{{ current.get('restDay') or '—' }}</strong></div>
+    <div><span>Effective</span><strong>{{ current.get('effective') or '—' }}</strong></div>
+  </div>
+</section>
+{% endif %}
+
+<section class="card table-card">
+  {% if shifts %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>SHIFT</th><th>START</th><th>END</th><th>BREAK</th><th>REST DAY</th><th>EFFECTIVE</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in shifts %}
+        <tr {% if current and s.id == current.id %}style="background:#e8f2df"{% endif %}>
+          <td><strong>{{ s.get('name') or '—' }}</strong>{% if current and s.id == current.id %} · now{% endif %}</td>
+          <td>{{ s.get('start') or '—' }}</td>
+          <td>{{ s.get('end') or '—' }}</td>
+          <td>{% if s.get('breakMinutes') %}{{ s.get('breakMinutes') }} min{% else %}—{% endif %}</td>
+          <td>{{ s.get('restDay') or '—' }}</td>
+          <td>{{ s.get('effective') or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="table-bottom"><span>{{ shifts|length }} schedule(s)</span></div>
+  {% else %}
+  <div class="empty">
+    <h3>No shift assigned yet</h3>
+    <p>Ask HR to assign your shift under Shifts &amp; schedules.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

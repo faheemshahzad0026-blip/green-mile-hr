@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Green Mile HR{% endblock %}</title>
+  <script>
+    try{if(sessionStorage.getItem('gmNav'))document.documentElement.classList.add('gm-loading');}catch(e){}
+  </script>
+  {% if brand_agency and brand_agency.logo_path %}
+  <link rel="icon" href="{{ url_for('static', filename=brand_agency.logo_path) }}" sizes="any">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename=brand_agency.logo_path) }}">
+  {% else %}
+  <link rel="icon" href="{{ url_for('static', filename='green-mile-favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='green-mile-logo.png') }}">
+  {% endif %}
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div id="appLoader" class="app-loader" hidden aria-live="polite" aria-busy="false">
+    <div class="app-loader-panel">
+      <div class="app-loader-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p class="app-loader-text">Loading workspace</p>
+      <div class="app-loader-bar" aria-hidden="true"><i></i></div>
+    </div>
+  </div>
+  {% block body %}{% endblock %}
+  {% block scripts %}
+  <script src="{{ url_for('static', filename='js/app-shell.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/form-validate.js') }}"></script>
+  <script>
+    function toggleSidebar(){document.getElementById('sidebar')?.classList.toggle('open');}
+    function toggleHeaderMenu(btn){
+      const menu=btn&&btn.closest('.header-menu');
+      if(!menu) return;
+      const open=menu.classList.contains('open');
+      document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
+      if(!open) menu.classList.add('open');
+    }
+    if(!window.__gmHeaderMenuBound){
+      window.__gmHeaderMenuBound=true;
+      document.addEventListener('click',function(e){
+        if(!e.target.closest('.header-menu')) document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
+      });
+    }
+  </script>
+  {% endblock %}
+</body>
+</html>

@@ -1,0 +1,40 @@
+{% extends "layout_admin.html" %}
+{% block title %}Attendance · Green Mile HR{% endblock %}
+{% block heading %}Attendance{% endblock %}
+{% block description %}View all attendance punched by employees for {{ agency.company_name }}. HR cannot add or edit punches here.{% endblock %}
+{% block content %}
+<nav class="attendance-tabs">
+  <a class="{% if tab == 'daily' %}active{% endif %}" href="{{ url_for('modules.attendance_hub', tab='daily') }}">Daily attendance</a>
+  <a class="{% if tab == 'corrections' %}active{% endif %}" href="{{ url_for('modules.attendance_hub', tab='corrections') }}">Corrections</a>
+</nav>
+
+<section class="card table-card">
+  {% if rows %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          {% for col in mod.columns %}<th>{{ col|upper }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          {% for cell in row.cells %}
+          <td>{% if loop.first %}<strong>{{ cell }}</strong>{% else %}{{ cell }}{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="table-bottom"><span>{{ rows|length }} record(s) · view only</span></div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">◷</div>
+    <h3>No {% if tab == 'corrections' %}corrections{% else %}attendance{% endif %} yet</h3>
+    <p>Employee punches from the app will appear here automatically.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

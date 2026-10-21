@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Download APK · Green Mile HR{% endblock %}
+{% block body %}
+<main class="admin-login">
+  <form action="{{ url_for('employee.apk_file') if apk_ready else '#' }}" method="get">
+    <img src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="Green Mile">
+    <span class="login-eyebrow">HUMAN RESOURCES · ANDROID APP</span>
+    <h1>Download the app</h1>
+    <p>Install the Android APK, then sign in with your employee ID and PIN (or admin login).</p>
+    {% if apk_ready %}
+      <a class="primary" href="{{ url_for('employee.apk_file') }}" style="display:flex;text-align:center">Download APK</a>
+    {% else %}
+      <p class="login-error">APK is not uploaded on this server yet.</p>
+    {% endif %}
+    <a class="login-recovery" href="{{ url_for('auth.employee_login') }}">Employee sign in</a>
+    <a class="login-recovery" href="{{ url_for('auth.login') }}">Admin sign in</a>
+  </form>
+</main>
+{% endblock %}

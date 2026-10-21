@@ -1,0 +1,45 @@
+{% extends "layout_admin.html" %}
+{% block title %}Create users · Green Mile HR{% endblock %}
+{% block heading %}Create users{% endblock %}
+{% block description %}Create agency admin or staff accounts and assign them to an agency.{% endblock %}
+{% block content %}
+<section class="card" style="max-width:780px;margin-bottom:22px">
+  <div class="card-head"><div><h2>New agency user</h2><p>Super Admin only.</p></div></div>
+  {% if not form.agency_id.choices %}
+    <div class="empty"><p>Create an agency first.</p><a class="text-btn" href="{{ url_for('super_admin.agency_create') }}">Create agency</a></div>
+  {% else %}
+  <form method="post" class="form-body">
+    {{ form.hidden_tag() }}
+    <div class="form-grid">
+      <label><span class="field-label">Agency <em>*</em></span>{{ form.agency_id() }}</label>
+      <label><span class="field-label">Role <em>*</em></span>{{ form.role() }}</label>
+      <label><span class="field-label">Username <em>*</em></span>{{ form.username() }}</label>
+      <label><span class="field-label">Full name</span>{{ form.full_name() }}</label>
+      <label><span class="field-label">Password <em>*</em></span>{{ form.password() }}</label>
+      <label><span class="field-label">Confirm password <em>*</em></span>{{ form.password_confirm() }}</label>
+    </div>
+    <div style="margin-top:18px">{{ form.submit(class_='primary') }}</div>
+  </form>
+  {% endif %}
+</section>
+<section class="card table-card">
+  <div class="card-head"><div><h2>Agency users</h2><p>All non–super-admin accounts</p></div></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>USERNAME</th><th>ROLE</th><th>AGENCY</th><th>STATUS</th></tr></thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td><strong>{{ u.username }}</strong></td>
+          <td>{{ u.role.replace('_',' ') }}</td>
+          <td>{{ u.agency.name if u.agency else '—' }}</td>
+          <td><span class="badge {% if not u.is_active %}red{% endif %}">{% if u.is_active %}Active{% else %}Off{% endif %}</span></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4">No users yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

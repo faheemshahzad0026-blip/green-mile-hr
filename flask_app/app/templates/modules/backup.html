@@ -1,0 +1,13 @@
+{% extends "layout_admin.html" %}
+{% block title %}Backup · Green Mile HR{% endblock %}
+{% block heading %}{{ meta.title }}{% endblock %}
+{% block description %}{{ meta.description }}{% endblock %}
+{% block content %}
+<section class="card backup-card">
+  <div class="large-icon">⬇</div>
+  <h2>Download your workspace backup</h2>
+  <p>Downloads current saved HR records for <strong>{{ agency.company_name }}</strong>. Keep the file securely. Photos are not embedded in this JSON backup.</p>
+  <a class="primary" href="{{ url_for('modules.backup_json') }}">Download backup</a>
+  <div class="backup-note">Your workspace is private and requires sign-in.</div>
+</section>
+{% endblock %}

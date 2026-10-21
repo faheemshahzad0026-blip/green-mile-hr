@@ -1,0 +1,32 @@
+{% extends "layout_admin.html" %}
+{% block title %}Search · Green Mile HR{% endblock %}
+{% block heading %}Search{% endblock %}
+{% block description %}{% if q %}Results across {{ agency.company_name }}{% else %}Use the header search to find records across this agency{% endif %}{% endblock %}
+{% block content %}
+<section class="card">
+  {% if q %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>MODULE</th><th>RECORD</th><th></th></tr></thead>
+      <tbody>
+      {% for item in results %}
+        <tr>
+          <td><strong>{{ item.record.kind }}</strong></td>
+          <td class="global-search-match">{{ item.record.data }}</td>
+          <td><a class="text-btn" href="{{ item.href }}">Open</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3">No matches for “{{ q }}”.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">⌕</div>
+    <h3>Search Green Mile HR</h3>
+    <p>Type in the header search to find employees, attendance, documents and more.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

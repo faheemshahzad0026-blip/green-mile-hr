@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block body %}
+{% set _ep = request.endpoint or '' %}
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="{{ url_for('employee.home') }}">
+      <div class="brand-mark">
+        {% if brand_agency and brand_agency.logo_path %}
+          <img src="{{ url_for('static', filename=brand_agency.logo_path) }}" alt="Agency logo">
+        {% else %}
+          <img src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="Green Mile">
+        {% endif %}
+      </div>
+      <div class="company-brand">
+        <strong>{% if brand_agency %}{{ brand_agency.company_name }}{% else %}Green Mile{% endif %}</strong>
+        <span>EMPLOYEE</span>
+      </div>
+    </a>
+    <div class="workspace"><span class="workspace-dot"></span>Employee portal<span class="workspace-tag">APP</span></div>
+    <div class="nav-scroll">
+      <div class="nav-label">WORKSPACE</div>
+      <a class="nav {% if _ep == 'employee.home' %}active{% endif %}" href="{{ url_for('employee.home') }}"><span>Dashboard</span></a>
+      <a class="nav {% if _ep == 'employee.leave' %}active{% endif %}" href="{{ url_for('employee.leave') }}"><span>Leave</span></a>
+      <a class="nav {% if _ep == 'employee.shifts' %}active{% endif %}" href="{{ url_for('employee.shifts') }}"><span>Shifts &amp; schedules</span></a>
+      <a class="nav {% if _ep == 'employee.documents' %}active{% endif %}" href="{{ url_for('employee.documents') }}"><span>Documents</span></a>
+      <a class="nav {% if _ep == 'employee.announcements' %}active{% endif %}" href="{{ url_for('employee.announcements') }}"><span>Announcements</span></a>
+      <div class="nav-label">APP</div>
+      <a class="nav {% if _ep == 'employee.download_apk_page' %}active{% endif %}" href="{{ url_for('employee.download_apk_page') }}"><span>Download Android app</span></a>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="avatar">{{ current_user.display_name[:2]|upper }}</div>
+      <div><strong>{{ current_user.display_name }}</strong><span>{{ current_user.employee_code }}</span></div>
+      <a href="{{ url_for('auth.logout') }}" title="Sign out">⎋</a>
+    </div>
+  </aside>
+  <div class="scrim" onclick="toggleSidebar()"></div>
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb">
+        <button class="icon mobile-toggle" type="button" onclick="toggleSidebar()">☰</button>
+        <span>Employee</span><span>›</span><strong>{% block page_title %}Home{% endblock %}</strong>
+      </div>
+      <div class="top-right">
+        <div class="header-menu">
+          <button type="button" class="icon bell notify-btn header-menu-btn" aria-haspopup="true" aria-expanded="false" onclick="toggleHeaderMenu(this)" title="Notifications" id="empNotifyBtn">
+            <span class="bell-glyph" aria-hidden="true">🔔</span>
+            {% set _ncount = notify_count if notify_count is defined else (notify_items|length if notify_items is defined else 0) %}
+            {% if _ncount %}<b class="request-count" id="empNotifyBadge">{{ _ncount if _ncount < 100 else '99+' }}</b>{% else %}<b class="request-count" id="empNotifyBadge" hidden>0</b>{% endif %}
+          </button>
+          <div class="header-dropdown notify-dropdown cool-dropdown" id="empNotifyDrop">
+            <div class="notify-hero">
+              <div>
+                <strong>Notifications</strong>
+                <span id="empNotifyHero">{% if _ncount %}{{ _ncount }} update{{ 's' if _ncount != 1 else '' }}{% else %}You're all caught up{% endif %}</span>
+              </div>
+            </div>
+            <div class="notify-list" id="empNotifyList">
+              {% if notify_items %}
+                {% for item in notify_items %}
+                <a class="notify-item" href="{{ item.href }}">
+                  <span class="notify-dot"></span>
+                  <span>
+                    <strong>{{ item.title }}</strong>
+                    <small>{{ item.meta }}</small>
+                  </span>
+                </a>
+                {% endfor %}
+              {% else %}
+                <div class="header-dropdown-empty">No announcements or leave updates yet.</div>
+              {% endif %}
+            </div>
+            <a class="header-dropdown-foot" href="{{ url_for('employee.announcements') }}">Open announcements</a>
+          </div>
+        </div>
+        <img class="header-logo" src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="Green Mile">
+      </div>
+    </header>
+    <main class="content">
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">GREEN MILE • EMPLOYEE</div>
+          <h1>{% block heading %}Welcome{% endblock %}</h1>
+          <p>{% block description %}Your employee portal{% endblock %}</p>
+        </div>
+        {% block heading_actions %}{% endblock %}
+      </div>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'danger' %}error{% else %}{{ category }}{% endif %}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+      <div id="empLiveToast" class="emp-live-toast" hidden role="status"></div>
+      {% block content %}{% endblock %}
+      <footer class="app-footer"><span><img src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="">Green Mile HR</span><span>Employee portal</span></footer>
+    </main>
+  </div>
+</div>
+<script>
+(function(){
+  var url={{ url_for('employee.api_notifications')|tojson }};
+  var lastCount=Number({{ (notify_items|length if notify_items is defined else 0)|tojson }})||0;
+  var seenKey='gmEmpNotifySeen';
+  function setBadge(n){
+    var b=document.getElementById('empNotifyBadge');
+    var hero=document.getElementById('empNotifyHero');
+    if(!b) return;
+    if(n>0){b.hidden=false;b.textContent=n<100?String(n):'99+';}
+    else{b.hidden=true;}
+    if(hero) hero.textContent=n?(n+' update'+(n===1?'':'s')):"You're all caught up";
+  }
+  function renderList(items){
+    var list=document.getElementById('empNotifyList');
+    if(!list) return;
+    if(!items||!items.length){
+      list.innerHTML='<div class="header-dropdown-empty">No announcements or leave updates yet.</div>';
+      return;
+    }
+    list.innerHTML=items.map(function(it){
+      var unread=it.read?'' :' style="font-weight:750"';
+      return '<a class="notify-item" href="'+(it.href||'#')+'" data-notify-key="'+String(it.key||it.id||'')+'"'+unread+'><span class="notify-dot"></span><span><strong>'+
+        String(it.title||'').replace(/</g,'&lt;')+'</strong><small>'+
+        String(it.meta||it.message||'').replace(/</g,'&lt;')+'</small></span></a>';
+    }).join('');
+  }
+  document.addEventListener('click',function(e){
+    var a=e.target.closest('[data-notify-key]');
+    if(!a) return;
+    var key=a.getAttribute('data-notify-key');
+    if(!key) return;
+    fetch({{ url_for('employee.api_notification_read')|tojson }},{
+      method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('meta[name=csrf-token]')?.content||''},
+      body:JSON.stringify({key:key})
+    }).catch(function(){});
+  });
+  function toast(msg){
+    var el=document.getElementById('empLiveToast');
+    if(!el) return;
+    el.hidden=false;
+    el.textContent=msg;
+    clearTimeout(el._t);
+    el._t=setTimeout(function(){el.hidden=true;},5200);
+  }
+  function poll(){
+    fetch(url,{credentials:'same-origin',headers:{'Accept':'application/json'}})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data||!data.ok) return;
+        var count=data.count||0;
+        setBadge(count);
+        renderList(data.items||[]);
+        var ids=(data.items||[]).map(function(i){return i.id;}).join('|');
+        var prev=localStorage.getItem(seenKey)||'';
+        if(ids && ids!==prev && count>lastCount){
+          var first=(data.items&&data.items[0])||{};
+          toast((first.title||'New HR update')+' — tap the bell to open');
+        }
+        if(ids) localStorage.setItem(seenKey, ids);
+        lastCount=count;
+      }).catch(function(){});
+  }
+  setInterval(poll, 45000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) poll(); });
+})();
+</script>
+{% endblock %}

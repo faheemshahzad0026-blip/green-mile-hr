@@ -24,7 +24,13 @@ def _parse_date(value: str | None):
 
 def _emp_label(agency_id: int, emp_ref: str, employees_map: dict) -> dict:
     emp = employees_map.get(str(emp_ref)) or employees_map.get(emp_ref)
-    if emp:
+    if isinstance(emp, dict):
+        return {
+            "id": emp.get("code") or emp.get("employee_code") or str(emp_ref or "—"),
+            "name": emp.get("name") or emp.get("full_name") or "Employee",
+            "ref": str(emp.get("authEmployeeId") or emp.get("record_id") or emp_ref or ""),
+        }
+    if emp is not None and hasattr(emp, "employee_code"):
         return {
             "id": emp.employee_code,
             "name": emp.full_name,

@@ -21,7 +21,9 @@ from app.employee.services import (
     announcement_acks,
     build_employee_dashboard,
     build_employee_timesheet,
+    build_timesheet_summary,
     current_shift,
+    dubai_now_iso,
     dubai_now_time,
     dubai_today,
     employee_agency,
@@ -33,10 +35,12 @@ from app.employee.services import (
     leave_overlap_exists,
     leave_quotas,
     mark_notification_read,
+    parse_time_minutes,
     published_announcements,
     punch_attendance,
     records_for_employee,
     request_late_attendance,
+    shift_info_for_employee,
     today_attendance_record,
 )
 from app.extensions import db
@@ -316,8 +320,20 @@ def attendance():
             flash(str(exc), "danger")
         return redirect(url_for("employee.attendance", **request.args.to_dict()))
 
-    period = employee_period_from_args(request.args)
+    args = request.args.to_dict()
+    if "period" not in args and "from" not in args:
+        # Default: month-to-date date range (timesheet style)
+        today_s = dubai_today()
+        try:
+            today_d = datetime.strptime(today_s, "%Y-%m-%d").date()
+            month_start = today_d.replace(day=1).isoformat()
+        except Exception:
+            month_start = today_s
+        args = {"period": "custom", "from": month_start, "to": today_s}
+    period = employee_period_from_args(args)
     timesheet = build_employee_timesheet(current_user, period["start"], period["end"])
+    shift = shift_info_for_employee(current_user)
+    summary = build_timesheet_summary(timesheet, shift)
     quotas = leave_quotas(current_user)
     att = today_attendance_record(current_user)
     d = (att.data if att else {}) or {}
@@ -329,12 +345,14 @@ def attendance():
     )
     can_in = not open_punch and not finished_today
     can_out = open_punch
+    check_in_minutes = parse_time_minutes(d.get("timeIn")) if open_punch else None
     return render_template(
         "employee/attendance.html",
         agency=agency,
         employee=current_user,
         attendance=att,
         timesheet=timesheet,
+        summary=summary,
         period=period,
         quotas=quotas,
         leave_types=LEAVE_TYPES,
@@ -342,7 +360,9 @@ def attendance():
         can_out=can_out,
         today=dubai_today(),
         now_time=dubai_now_time(),
-        shift=current_shift(current_user),
+        now_iso=dubai_now_iso(),
+        shift=shift,
+        check_in_minutes=check_in_minutes,
         format_time_12h=format_time_12h,
     )
 

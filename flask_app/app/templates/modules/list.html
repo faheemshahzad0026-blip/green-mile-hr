@@ -5,6 +5,8 @@
 {% block heading_actions %}
 {% if kind == 'employees' %}
 <button type="button" class="primary" onclick="openEmployeeModal()">+ Add employee</button>
+{% elif kind == 'leave' %}
+<button type="button" class="primary" onclick="openRecordModal()">+ Add leave</button>
 {% elif employee_filter or kind in ['shifts', 'announcements', 'departments', 'assets', 'recruitment', 'settings'] or mod.get('add_label') %}
 <button type="button" class="primary" onclick="openRecordModal()">{{ mod.get('add_label') or ('+ Add ' ~ (mod.title|lower)) }}</button>
 {% endif %}
@@ -12,7 +14,17 @@
 {% block content %}
 
 <section class="card table-card{% if kind == 'employees' %} employees-table{% endif %}">
-  {% if employee_filter and kind != 'employees' %}
+  {% if kind == 'leave' %}
+  <div class="table-toolbar" style="padding:14px 18px 0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+    <p style="margin:0;font-size:13px;color:#5d7150">Approve with ✓ or reject with ✕. The employee gets a portal notification automatically.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      {% if employee_filter %}
+      <a class="secondary" href="{{ url_for('modules.module_list', kind='leave') }}">All leave requests</a>
+      {% endif %}
+      <a class="secondary" href="{{ url_for('modules.module_list', kind='employees') }}">← Employees</a>
+    </div>
+  </div>
+  {% elif employee_filter and kind != 'employees' %}
   <div class="table-toolbar">
     <div class="toolbar-right" style="margin-left:auto">
       <a class="secondary" href="{{ url_for('modules.module_list', kind='employees') }}">← Employees</a>
@@ -20,7 +32,9 @@
     </div>
   </div>
   {% endif %}
-  {% if employee_filter and kind != 'employees' %}
+  {% if employee_filter and kind == 'leave' %}
+  <div class="alert info" style="margin:12px 18px">Leave history for this employee. Pending items appear first.</div>
+  {% elif employee_filter and kind != 'employees' %}
   <div class="alert info" style="margin:0 18px 12px">Showing records for this employee only. Use Actions on Employees to open other modules.</div>
   {% endif %}
   {% if rows %}
@@ -36,7 +50,7 @@
       </thead>
       <tbody>
         {% for row in rows %}
-        <tr>
+        <tr class="{% if row.is_focus %}row-focus{% endif %}" id="leave-row-{{ row.id }}">
           {% for cell in row.cells %}
             <td>{% if loop.first %}<strong>{{ cell }}</strong>{% else %}{{ cell }}{% endif %}</td>
           {% endfor %}
@@ -73,7 +87,7 @@
                 <div class="header-dropdown action-dropdown">
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id) }}"><strong>Open profile</strong><span>Full employee workspace</span></a>
                   <button type="button" class="header-dropdown-row" data-app-open="{{ row.id }}" data-name="{{ row.name }}" data-code="{{ row.employee_code }}" data-allowed="{{ '1' if row.app_allowed else '0' }}" data-employment="{{ row.employment_status }}" data-pin="{{ row.reveal_pin }}"><strong>App access</strong><span>Allow / block · send login</span></button>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id, _anchor='leave') }}"><strong>Leave</strong><span>Requests &amp; balance</span></a>
+                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='leave', employee=row.emp_ref) }}"><strong>Leave</strong><span>Requests · approve / reject</span></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='shifts', employee=row.emp_ref) }}"><strong>Assign shift</strong><span>Schedule &amp; rest day</span></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='documents', employee=row.emp_ref) }}"><strong>Documents &amp; expiry</strong></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='documentRenewals', employee=row.emp_ref) }}"><strong>Document renewals</strong></a>
@@ -89,6 +103,35 @@
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='gratuity') }}"><strong>End of service</strong></a>
                 </div>
               </div>
+            </div>
+            {% elif kind == 'leave' %}
+            <div class="row-actions action-drop leave-review-actions">
+              {% set st = (row.data or {}).get('status') or '' %}
+              {% if st == 'Pending' %}
+              <form method="post" class="icon-action-form" title="Approve leave">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="Approved">
+                <input type="hidden" name="id" value="{{ row.id }}">
+                {% if employee_filter %}<input type="hidden" name="employee" value="{{ employee_filter }}">{% endif %}
+                <button type="submit" class="icon-action leave-approve" aria-label="Approve">✓</button>
+              </form>
+              <form method="post" class="icon-action-form" title="Reject leave" onsubmit="return confirm('Reject this leave request?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="Rejected">
+                <input type="hidden" name="id" value="{{ row.id }}">
+                {% if employee_filter %}<input type="hidden" name="employee" value="{{ employee_filter }}">{% endif %}
+                <button type="submit" class="icon-action leave-reject" aria-label="Reject">✕</button>
+              </form>
+              {% else %}
+              <span class="badge {% if st == 'Approved' %}status-present{% elif st == 'Rejected' %}status-absent{% endif %}">{{ st or '—' }}</span>
+              {% endif %}
+              <button
+                type="button"
+                class="icon-action"
+                title="Edit"
+                aria-label="Edit"
+                onclick='openRecordModal({{ row.id }}, {{ row.data|tojson }})'
+              >✎</button>
             </div>
             {% else %}
             <div class="row-actions action-drop">
@@ -320,6 +363,14 @@
 
 {% block scripts %}
 {{ super() }}
+{% if focus_id %}
+<script>
+(function(){
+  var el=document.getElementById('leave-row-{{ focus_id }}')||document.querySelector('.row-focus');
+  if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); }
+})();
+</script>
+{% endif %}
 {% if kind != 'employees' %}
 <script>
 function openRecordModal(editId, data){

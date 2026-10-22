@@ -115,6 +115,33 @@ def ensure_super_admin():
     return user
 
 
+def _notification_employee_label(agency_id: int, emp_ref: str) -> str:
+    """Best-effort name/code for notification titles."""
+    if not emp_ref:
+        return "Employee"
+    emp = None
+    try:
+        emp = Employee.query.filter_by(id=int(emp_ref), agency_id=agency_id).first()
+    except (TypeError, ValueError):
+        emp = Employee.query.filter_by(agency_id=agency_id, employee_code=str(emp_ref)).first()
+    if emp:
+        return f"{emp.full_name or emp.employee_code} ({emp.employee_code})"
+    hr = (
+        HrRecord.query.filter_by(agency_id=agency_id, kind="employees")
+        .order_by(HrRecord.id.desc())
+        .all()
+    )
+    for h in hr:
+        d = h.data or {}
+        if str(h.id) == str(emp_ref) or str(d.get("authEmployeeId") or "") == str(emp_ref) or str(
+            d.get("code") or ""
+        ) == str(emp_ref):
+            name = d.get("name") or d.get("code") or "Employee"
+            code = d.get("code") or ""
+            return f"{name} ({code})" if code else str(name)
+    return str(emp_ref)
+
+
 def pending_notifications(agency_id: int, limit: int = 12):
     """Open employee queries / alerts for the header notification panel."""
     from flask import url_for
@@ -138,34 +165,48 @@ def pending_notifications(agency_id: int, limit: int = 12):
     )
     for rec in records:
         label, pending_status = kinds.get(rec.kind, ("Request", "Pending"))
-        status = (rec.data or {}).get("status") or ""
+        data = rec.data or {}
+        status = data.get("status") or ""
         if status != pending_status and status not in {"Pending", "In progress"}:
             continue
         if rec.kind == "helpDesk" and status not in {"Pending", "In progress"}:
             continue
         subject = (
-            (rec.data or {}).get("subject")
-            or (rec.data or {}).get("reason")
-            or (rec.data or {}).get("purpose")
-            or (rec.data or {}).get("type")
+            data.get("subject")
+            or data.get("reason")
+            or data.get("purpose")
+            or data.get("type")
             or label
         )
-        emp_ref = (rec.data or {}).get("employee") or ""
+        emp_ref = str(data.get("employee") or "")
+        who = _notification_employee_label(agency_id, emp_ref)
         if rec.kind == "corrections":
-            href = url_for("modules.attendance_hub", tab="corrections")
+            href = url_for("modules.attendance_hub", tab="corrections", focus=rec.id)
         elif rec.kind == "leave":
-            href = url_for("modules.module_list", kind="employees")
+            # Leave history for that employee — not the employee profile page
+            leave_args = {"kind": "leave", "focus": rec.id}
+            if emp_ref:
+                leave_args["employee"] = emp_ref
+            href = url_for("modules.module_list", **leave_args)
         elif emp_ref:
             href = url_for(
-                "modules.module_list", kind=rec.kind, employee=emp_ref, edit=rec.id
+                "modules.module_list", kind=rec.kind, employee=emp_ref, focus=rec.id
             )
         else:
-            href = url_for("modules.module_list", kind=rec.kind, edit=rec.id)
+            href = url_for("modules.module_list", kind=rec.kind, focus=rec.id)
+        meta_bits = [f"Status · {status or 'Open'}", who]
+        if rec.kind == "leave":
+            frm, to = data.get("from") or "—", data.get("to") or "—"
+            meta_bits.insert(0, f"{frm} → {to}")
         items.append(
             {
+                "id": f"{rec.kind}:{rec.id}",
+                "kind": rec.kind,
+                "recordId": rec.id,
                 "title": f"{label}: {subject}",
-                "meta": f"Status · {status or 'Open'}",
+                "meta": " · ".join(meta_bits),
                 "href": href,
+                "read": False,
             }
         )
         if len(items) >= limit:

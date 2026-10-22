@@ -131,11 +131,14 @@
 <section class="card" id="leave" style="margin-bottom:22px">
   <div class="card-head">
     <div><h2>Leave</h2><p>Balance {{ leave_balance }} day(s) remaining · {{ used_leave }} used of {{ annual_leave }}</p></div>
-    <button type="button" class="primary" onclick="openProfileLeaveModal()">+ Add leave</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a class="secondary" href="{{ url_for('modules.module_list', kind='leave', employee=emp_key) }}">Full leave history</a>
+      <button type="button" class="primary" onclick="openProfileLeaveModal()">+ Add leave</button>
+    </div>
   </div>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>TYPE</th><th>FROM</th><th>TO</th><th>STATUS</th><th></th></tr></thead>
+      <thead><tr><th>TYPE</th><th>FROM</th><th>TO</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
       <tbody>
       {% for r in leave_rows %}
         <tr>
@@ -143,7 +146,24 @@
           <td>{{ r.get('from') }}</td>
           <td>{{ r.get('to') }}</td>
           <td><span class="badge {% if r.get('status')=='Pending' %}amber{% endif %}">{{ r.get('status') }}</span></td>
-          <td></td>
+          <td class="leave-review-actions">
+            {% if r.get('status') == 'Pending' %}
+            <form method="post" action="{{ url_for('modules.module_list', kind='leave', employee=emp_key) }}" class="icon-action-form" style="display:inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="Approved">
+              <input type="hidden" name="id" value="{{ r.id }}">
+              <input type="hidden" name="employee" value="{{ emp_key }}">
+              <button type="submit" class="icon-action leave-approve" title="Approve" aria-label="Approve">✓</button>
+            </form>
+            <form method="post" action="{{ url_for('modules.module_list', kind='leave', employee=emp_key) }}" class="icon-action-form" style="display:inline" onsubmit="return confirm('Reject this leave request?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="Rejected">
+              <input type="hidden" name="id" value="{{ r.id }}">
+              <input type="hidden" name="employee" value="{{ emp_key }}">
+              <button type="submit" class="icon-action leave-reject" title="Reject" aria-label="Reject">✕</button>
+            </form>
+            {% else %}—{% endif %}
+          </td>
         </tr>
       {% else %}
         <tr><td colspan="5">No leave requests for this employee. <button type="button" class="text-btn" onclick="openProfileLeaveModal()">Add leave</button></td></tr>

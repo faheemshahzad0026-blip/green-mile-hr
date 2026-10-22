@@ -48,6 +48,88 @@ def format_time_12h(value) -> str:
         return s
 
 
+def parse_time_minutes(value) -> int | None:
+    """Parse HH:MM / 12h clock into minutes from midnight."""
+    if value in (None, ""):
+        return None
+    s = str(value).strip().upper().replace(".", "")
+    if not s or s == "—":
+        return None
+    try:
+        if "AM" in s or "PM" in s:
+            ampm = "PM" if "PM" in s else "AM"
+            core = s.replace("AM", "").replace("PM", "").strip()
+            parts = core.split(":")
+            hour = int(parts[0])
+            minute = int(parts[1][:2]) if len(parts) > 1 else 0
+            if ampm == "AM":
+                hour = 0 if hour == 12 else hour
+            else:
+                hour = hour if hour == 12 else hour + 12
+            return hour * 60 + minute
+        parts = s.split(":")
+        hour = int(parts[0])
+        minute = int(parts[1][:2]) if len(parts) > 1 else 0
+        if 0 <= hour < 24 and 0 <= minute < 60:
+            return hour * 60 + minute
+    except Exception:
+        return None
+    return None
+
+
+def format_duration_hm(minutes: int | None) -> str:
+    """Format minutes as ``09 h 00 m``."""
+    if minutes is None:
+        return "00 h 00 m"
+    m = int(minutes)
+    sign = "-" if m < 0 else ""
+    m = abs(m)
+    return f"{sign}{m // 60:02d} h {m % 60:02d} m"
+
+
+def format_hours_decimal(minutes: int | None) -> str:
+    if minutes is None:
+        return "0.00 hours"
+    return f"{max(0, minutes) / 60.0:.2f} hours"
+
+
+def shift_duration_minutes(shift_data: dict | None) -> int:
+    """Official shift length from HR start/end (default 8h). Handles overnight."""
+    d = shift_data or {}
+    start = parse_time_minutes(d.get("start"))
+    end = parse_time_minutes(d.get("end"))
+    if start is None or end is None:
+        return 8 * 60
+    diff = end - start
+    if diff <= 0:
+        diff += 24 * 60
+    break_m = 0
+    try:
+        break_m = int(d.get("breakMinutes") or 0)
+    except (TypeError, ValueError):
+        break_m = 0
+    return max(60, diff - max(0, break_m))
+
+
+def worked_minutes(time_in, time_out) -> int | None:
+    start = parse_time_minutes(time_in)
+    end = parse_time_minutes(time_out)
+    if start is None or end is None:
+        return None
+    diff = end - start
+    if diff < 0:
+        diff += 24 * 60
+    return diff
+
+
+def avg_time_label(minute_list: list[int]) -> str:
+    if not minute_list:
+        return "—"
+    avg = int(round(sum(minute_list) / len(minute_list)))
+    avg %= 24 * 60
+    return format_time_12h(f"{avg // 60:02d}:{avg % 60:02d}")
+
+
 def dubai_yesterday() -> str:
     return (datetime.now(timezone.utc) + timedelta(hours=4) - timedelta(days=1)).strftime(
         "%Y-%m-%d"
@@ -865,6 +947,8 @@ def employee_notifications(emp: Employee, limit: int = 20) -> list[dict]:
                 "from": d.get("from"),
                 "to": d.get("to"),
                 "reason": d.get("reason"),
+                "reviewedAt": d.get("reviewedAt") or "",
+                "reviewNote": d.get("reviewNote") or "",
             }
             href = url_for("employee.leave")
         elif r.kind == "corrections":
@@ -1045,10 +1129,35 @@ def employee_period_from_args(args) -> dict:
     }
 
 
+def shift_info_for_employee(emp: Employee) -> dict:
+    """HR shift used for official hours, late/early, and live timer."""
+    rec = current_shift(emp)
+    d = (rec.data if rec else {}) or {}
+    official = shift_duration_minutes(d)
+    return {
+        "id": rec.id if rec else None,
+        "name": d.get("name") or "General shift",
+        "start": d.get("start") or "",
+        "end": d.get("end") or "",
+        "start_label": format_time_12h(d.get("start")) if d.get("start") else "—",
+        "end_label": format_time_12h(d.get("end")) if d.get("end") else "—",
+        "rest_day": d.get("restDay") or "",
+        "break_minutes": d.get("breakMinutes") or 0,
+        "official_minutes": official,
+        "official_hours_label": format_hours_decimal(official),
+        "has_shift": bool(rec),
+    }
+
+
 def build_employee_timesheet(emp: Employee, start: date, end: date) -> list[dict]:
-    """One row per day: date, day name, times, status, actions flags."""
+    """One row per day: date, day name, times, short/excess, status, actions."""
     today = dubai_today()
-    today_d = datetime.strptime(today, "%Y-%m-%d").date()
+    shift = shift_info_for_employee(emp)
+    official = shift["official_minutes"]
+    rest_day = (shift.get("rest_day") or "").strip().lower()
+    shift_start_m = parse_time_minutes(shift.get("start"))
+    shift_end_m = parse_time_minutes(shift.get("end"))
+
     att_map = {}
     for r in records_for_employee(emp, "attendance"):
         d = r.data or {}
@@ -1084,16 +1193,51 @@ def build_employee_timesheet(emp: Employee, start: date, end: date) -> list[dict
                 on_leave = d
                 break
 
-        time_in = format_time_12h((att or {}).get("data", {}).get("timeIn")) if att else "—"
-        time_out = format_time_12h((att or {}).get("data", {}).get("timeOut")) if att else "—"
+        raw_in = (att or {}).get("data", {}).get("timeIn") if att else None
+        raw_out = (att or {}).get("data", {}).get("timeOut") if att else None
+        time_in = format_time_12h(raw_in) if raw_in else "—"
+        time_out = format_time_12h(raw_out) if raw_out else "—"
         if time_in == "—" and time_out == "—":
             time_label = "—"
+            time_range = "—"
         else:
             time_label = f"{time_in if time_in != '—' else '—'} – {time_out if time_out != '—' else '—'}"
+            time_range = f"{time_in if time_in != '—' else '—'} to {time_out if time_out != '—' else '—'}"
+
+        day_long = cur.strftime("%A")
+        is_rest = bool(rest_day) and day_long.lower() == rest_day
+        day_kind = "Weekend" if is_rest else "Working Day"
+
+        worked = worked_minutes(raw_in, raw_out)
+        if worked is None and not (raw_in or raw_out):
+            hours_label = "00 h 00 m"
+            short_excess = "—"
+            short_excess_minutes = None
+        elif worked is None:
+            hours_label = "—"
+            short_excess = "—"
+            short_excess_minutes = None
+        else:
+            hours_label = format_duration_hm(worked)
+            delta = worked - official
+            short_excess_minutes = delta
+            short_excess = format_duration_hm(abs(delta)) if delta != 0 else "00 h 00 m"
+            if delta < 0:
+                short_excess = f"-{short_excess}" if not short_excess.startswith("-") else short_excess
+
+        late_in = False
+        early_out = False
+        tin_m = parse_time_minutes(raw_in)
+        tout_m = parse_time_minutes(raw_out)
+        if tin_m is not None and shift_start_m is not None and tin_m > shift_start_m + 5:
+            late_in = True
+        if tout_m is not None and shift_end_m is not None and tout_m < shift_end_m - 5:
+            early_out = True
 
         if on_leave and (on_leave.get("status") == "Approved"):
             status = "On leave"
             status_key = "on_leave"
+            day_kind = "Leave"
         elif corr and (corr.get("status") == "Pending"):
             status = "Pending approval"
             status_key = "pending"
@@ -1103,6 +1247,9 @@ def build_employee_timesheet(emp: Employee, start: date, end: date) -> list[dict
         elif corr and (corr.get("status") == "Rejected"):
             status = "Absent"
             status_key = "absent"
+        elif is_rest and not att:
+            status = "Weekend"
+            status_key = "weekend"
         elif day > today:
             status = "—"
             status_key = "future"
@@ -1113,27 +1260,111 @@ def build_employee_timesheet(emp: Employee, start: date, end: date) -> list[dict
         can_request_att = status_key in {"absent"} and day <= today and not (
             corr and corr.get("status") == "Pending"
         )
-        can_apply_leave = status_key not in {"on_leave", "future"} and day <= today
+        can_apply_leave = status_key not in {"on_leave", "future", "weekend"} and day <= today
+
+        date_display = cur.strftime("%d/%m/%Y")
 
         rows.append(
             {
                 "date": day,
+                "date_display": date_display,
                 "day": cur.strftime("%a"),
-                "day_long": cur.strftime("%A"),
+                "day_long": day_long,
+                "day_kind": day_kind,
                 "time": time_label,
+                "time_range": time_range,
                 "time_in": time_in,
                 "time_out": time_out,
+                "hours_label": hours_label,
+                "worked_minutes": worked,
+                "short_excess": short_excess,
+                "short_excess_minutes": short_excess_minutes,
+                "late_in": late_in,
+                "early_out": early_out,
                 "status": status,
                 "status_key": status_key,
                 "leave_type": (on_leave or {}).get("type") if on_leave else "",
+                "leave_portion": (
+                    0.5
+                    if on_leave and on_leave.get("status") == "Approved" and on_leave.get("dayPart") == "Half"
+                    else (1.0 if on_leave and on_leave.get("status") == "Approved" else 0)
+                ),
                 "correction_id": (corr or {}).get("id"),
                 "can_request_attendance": can_request_att,
                 "can_apply_leave": can_apply_leave,
                 "is_today": day == today,
+                "is_rest": is_rest,
             }
         )
         cur -= timedelta(days=1)
     return rows
+
+
+def build_timesheet_summary(rows: list[dict], shift: dict) -> dict:
+    """Top KPI cards for the timesheet view."""
+    in_mins: list[int] = []
+    out_mins: list[int] = []
+    worked_list: list[int] = []
+    late_days = 0
+    early_days = 0
+    absent_days = 0
+    leave_days = 0.0
+    for row in rows:
+        if row.get("status_key") == "present":
+            tin = parse_time_minutes(row.get("time_in"))
+            tout = parse_time_minutes(row.get("time_out"))
+            if tin is not None:
+                in_mins.append(tin)
+            if tout is not None:
+                out_mins.append(tout)
+            if row.get("worked_minutes") is not None:
+                worked_list.append(int(row["worked_minutes"]))
+            if row.get("late_in"):
+                late_days += 1
+            if row.get("early_out"):
+                early_days += 1
+        elif row.get("status_key") == "absent":
+            absent_days += 1
+        elif row.get("status_key") == "on_leave":
+            leave_days += float(row.get("leave_portion") or 0)
+
+    avg_worked = int(round(sum(worked_list) / len(worked_list))) if worked_list else None
+    return {
+        "avg_check_in": avg_time_label(in_mins),
+        "avg_check_out": avg_time_label(out_mins),
+        "official_in": shift.get("start_label") or "—",
+        "official_out": shift.get("end_label") or "—",
+        "avg_daily_label": (
+            f"Official {shift.get('official_hours_label') or '8.00 hours'}"
+            if avg_worked is None
+            else f"{format_hours_decimal(avg_worked)} · Official {shift.get('official_hours_label') or '8.00 hours'}"
+        ),
+        "late_ins": f"{late_days} Days",
+        "early_outs": f"{early_days:.2f} Days",
+        "absents": f"{absent_days} Days",
+        "leaves": f"{leave_days:.2f} Days",
+        "official_duties": "0.00 Days",
+    }
+
+
+def review_leave_request(agency_id: int, leave_id: int, decision: str, note: str = "") -> HrRecord:
+    """HR approve / reject leave. Employee bell picks up Approved / Rejected status."""
+    decision = (decision or "").strip()
+    if decision not in {"Approved", "Rejected"}:
+        raise ValueError("Choose Approve or Reject.")
+    rec = HrRecord.query.filter_by(id=leave_id, agency_id=agency_id, kind="leave").first()
+    if not rec:
+        raise ValueError("Leave request not found.")
+    d = dict(rec.data or {})
+    if (d.get("status") or "") != "Pending":
+        raise ValueError("This leave request was already reviewed.")
+    d["status"] = decision
+    d["reviewedAt"] = dubai_now_iso()
+    note = (note or "").strip()
+    if note:
+        d["reviewNote"] = note[:500]
+    rec.data = d
+    return rec
 
 
 def request_late_attendance(

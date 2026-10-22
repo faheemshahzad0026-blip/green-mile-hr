@@ -132,6 +132,7 @@
   document.addEventListener('keydown',function(e){
     if(e.key!=='Escape') return;
     if(document.getElementById('lateAttModal') && !document.getElementById('lateAttModal').hidden) return;
+    if(document.getElementById('punchModal') && !document.getElementById('punchModal').hidden) return;
     closeLeaveModal();
   });
 })();

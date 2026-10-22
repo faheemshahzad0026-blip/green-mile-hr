@@ -1,9 +1,15 @@
 {% extends "layout_employee.html" %}
-{% block title %}Attendance · Green Mile HR{% endblock %}
-{% block page_title %}Attendance{% endblock %}
-{% block heading %}Attendance{% endblock %}
-{% block description %}Punch with selfie + GPS, then review your timesheet. Request late attendance or apply leave from Actions.{% endblock %}
+{% block title %}Time Sheet · Green Mile HR{% endblock %}
+{% block page_title %}Time Sheet{% endblock %}
+{% block heading %}Time Sheet{% endblock %}
+{% block description %}Hours vs your HR shift. Check in / out opens the camera and needs Location.{% endblock %}
 {% block heading_actions %}
+{% if can_in %}
+<button type="button" class="primary" id="openPunchIn">Check in</button>
+{% endif %}
+{% if can_out %}
+<button type="button" class="primary" id="openPunchOut">Check out</button>
+{% endif %}
 <button type="button" class="secondary" onclick="openLeaveModal()">+ Apply leave</button>
 {% endblock %}
 {% block content %}
@@ -11,137 +17,184 @@
 {% set tin = format_time_12h(d.get('timeIn')) if d.get('timeIn') else '—' %}
 {% set tout = format_time_12h(d.get('timeOut')) if d.get('timeOut') else '—' %}
 
-<div class="mobile-attendance-layout emp-att-layout">
-  <section class="card punch-card">
-    <div class="punch-brand">
-      {% if agency and agency.logo_path %}
-      <img src="{{ url_for('static', filename=agency.logo_path) }}" alt="">
-      {% else %}
-      <img src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="Green Mile">
-      {% endif %}
-      <div>
-        <strong>{{ agency.company_name if agency else 'Green Mile HR' }}</strong>
-        <span>Employee attendance · selfie + GPS</span>
-      </div>
-      <span class="live-chip"><i></i><span id="attOnlineLabel">ONLINE</span></span>
+{# Live shift timer — spent / remaining against HR official hours #}
+<section class="ts-timer-bar" id="shiftTimerBar" data-checked-in="{{ '1' if can_out else '0' }}" data-check-in-min="{{ check_in_minutes if check_in_minutes is not none else '' }}" data-check-in-date="{{ d.get('date') or today }}" data-official-min="{{ shift.official_minutes }}" data-server-now="{{ now_iso }}">
+  <div class="ts-timer-main">
+    <div>
+      <span class="ts-timer-label">Shift · {{ shift.name }}</span>
+      <strong id="tsTimerSpent">—</strong>
+      <small>Time spent</small>
     </div>
-
-    <div class="punch-clock">
-      <div class="eyebrow">DUBAI LOCAL TIME</div>
-      <strong id="attClock">{{ now_time }}</strong>
-      <span>{{ today }}</span>
+    <div class="ts-timer-progress"><i id="tsTimerFill"></i></div>
+    <div>
+      <span class="ts-timer-label">Official {{ shift.official_hours_label }}</span>
+      <strong id="tsTimerRemain">—</strong>
+      <small>Remaining</small>
     </div>
+  </div>
+  <div class="ts-timer-meta">
+    <span>Official {{ shift.start_label }} – {{ shift.end_label }}</span>
+    <span>Today · In {{ tin }} · Out {{ tout }}</span>
+  </div>
+</section>
 
-    <div class="punch-status">
-      <div>
-        <span>Check in<strong id="attTimeIn">{{ tin }}</strong></span>
-      </div>
-      <div>
-        <span>Check out<strong id="attTimeOut">{{ tout }}</strong></span>
-      </div>
+{# KPI cards #}
+<div class="ts-kpi-grid">
+  <div class="ts-kpi">
+    <span>Avg Check In Time</span>
+    <strong>{{ summary.avg_check_in }}</strong>
+    <small>Official Time {{ summary.official_in }}</small>
+  </div>
+  <div class="ts-kpi">
+    <span>Avg Check Out Time</span>
+    <strong>{{ summary.avg_check_out }}</strong>
+    <small>Official Time {{ summary.official_out }}</small>
+  </div>
+  <div class="ts-kpi">
+    <span>Avg Daily Time Spent</span>
+    <strong class="ts-kpi-soft">{{ summary.avg_daily_label }}</strong>
+  </div>
+  <div class="ts-kpi ts-kpi-split">
+    <div>
+      <span>Total Late In's</span>
+      <strong class="ts-kpi-alert">{{ summary.late_ins }}</strong>
     </div>
-
-    {% if shift %}
-    <div class="emp-att-shift">
-      <strong>{{ shift.get('name') or 'Shift' }}</strong>
-      <span>{{ format_time_12h(shift.get('start')) if shift.get('start') else '—' }} – {{ format_time_12h(shift.get('end')) if shift.get('end') else '—' }} · Rest {{ shift.get('restDay') or '—' }}</span>
+    <div>
+      <span>Total Early Out's</span>
+      <strong class="ts-kpi-alert">{{ summary.early_outs }}</strong>
     </div>
-    {% endif %}
-
-    <div class="gps-status" id="gpsStatus">
-      <span class="gps-pin" aria-hidden="true">◎</span>
-      <div>
-        <strong id="gpsTitle">Location required</strong>
-        <span id="gpsDetail">On phone or tablet, tap <b>Allow location</b> when your browser asks. Works in any browser. Attendance will not save if Location is off.</span>
-      </div>
-      <button type="button" class="secondary" id="gpsRefresh">Allow location</button>
+  </div>
+  <div class="ts-kpi">
+    <span>Absents</span>
+    <strong class="ts-kpi-alert">{{ summary.absents }}</strong>
+  </div>
+  <div class="ts-kpi ts-kpi-split">
+    <div>
+      <span>Leaves</span>
+      <strong>{{ summary.leaves }}</strong>
     </div>
-
-    <div class="selfie-panel">
-      <div class="selfie-stage">
-        <video id="selfieVideo" playsinline autoplay muted hidden></video>
-        <canvas id="selfieCanvas" hidden></canvas>
-        <img id="selfiePreview" alt="Selfie preview" hidden>
-        <div class="selfie-empty" id="selfieEmpty">Camera selfie required for each punch</div>
-      </div>
-      <div class="selfie-actions">
-        <button type="button" class="secondary" id="selfieStart">Open camera</button>
-        <button type="button" class="secondary" id="selfieSnap" disabled>Take selfie</button>
-        <button type="button" class="text-btn" id="selfieRetake" hidden>Retake</button>
-      </div>
-      <p class="punch-note">Photo evidence only — not face recognition. Device GPS can be imprecise.</p>
+    <div>
+      <span>Official Duties</span>
+      <strong>{{ summary.official_duties }}</strong>
     </div>
+  </div>
+</div>
 
-    <div class="alert error" id="attError" hidden role="alert"></div>
-    <div class="alert success" id="attSuccess" hidden role="status"></div>
-
-    <div class="punch-buttons">
-      <button type="button" class="primary" id="btnCheckIn" {% if not can_in %}disabled data-locked="1"{% endif %}>Check in</button>
-      <button type="button" class="secondary" id="btnCheckOut" {% if not can_out %}disabled data-locked="1"{% endif %}>Check out</button>
+<section class="card table-card ts-sheet">
+  <div class="ts-sheet-toolbar">
+    <div>
+      <h2>Attendance</h2>
+      <p>{{ period.label }} · Dubai calendar</p>
     </div>
-    <div class="punch-progress" id="attBusy" hidden role="status">Saving punch…</div>
-  </section>
-
-  <section class="card table-card emp-att-history">
-    <div class="card-head">
-      <div>
-        <h2>Timesheet</h2>
-        <p>{{ period.label }} · Dubai calendar</p>
-      </div>
-    </div>
-    <form class="timesheet-filter" method="get" action="{{ url_for('employee.attendance') }}">
-      <label>
-        <span>Period</span>
-        <select name="period" onchange="this.form.submit()">
-          {% for key, label in period.options %}
-          <option value="{{ key }}" {% if period.key == key %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      {% if period.key == 'custom' %}
-      <label><span>From</span><input type="date" name="from" value="{{ period.custom_from }}"></label>
-      <label><span>To</span><input type="date" name="to" value="{{ period.custom_to }}"></label>
-      <button class="secondary" type="submit">Apply</button>
-      {% endif %}
+    <form class="ts-date-filter" method="get" action="{{ url_for('employee.attendance') }}">
+      <input type="hidden" name="period" value="custom">
+      <label><span>From</span><input type="date" name="from" value="{{ period.custom_from }}" required></label>
+      <label><span>To</span><input type="date" name="to" value="{{ period.custom_to }}" required></label>
+      <button type="submit" class="ts-refresh" title="Refresh" aria-label="Refresh">↻</button>
     </form>
-    {% if timesheet %}
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr><th>DATE</th><th>DAY</th><th>TIME</th><th>STATUS</th><th>ACTIONS</th></tr>
-        </thead>
-        <tbody>
-          {% for row in timesheet %}
-          <tr class="{% if row.is_today %}timesheet-today{% endif %}">
-            <td><strong>{{ row.date }}</strong></td>
-            <td>{{ row.day }}</td>
-            <td>{{ row.time }}</td>
-            <td>
-              <span class="badge status-{{ row.status_key }}">{{ row.status }}</span>
-              {% if row.leave_type %}<small> · {{ row.leave_type }}</small>{% endif %}
-            </td>
-            <td class="timesheet-actions">
-              {% if row.can_request_attendance %}
-              <button type="button" class="text-btn" data-late-date="{{ row.date }}">Request attendance</button>
-              {% endif %}
-              {% if row.can_apply_leave %}
-              <button type="button" class="text-btn" onclick="openLeaveModal('{{ row.date }}')">Apply leave</button>
-              {% endif %}
-              {% if row.status_key == 'pending' %}
-              <span class="soft-badge">Awaiting HR</span>
-              {% elif row.status_key in ['present', 'on_leave', 'future'] and not row.can_request_attendance and not row.can_apply_leave %}
-              —
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  </div>
+
+  {% if timesheet %}
+  <div class="table-scroll">
+    <table class="ts-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Day</th>
+          <th>Short / Excess</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in timesheet %}
+        <tr class="{% if row.is_today %}timesheet-today{% endif %} {% if row.is_rest %}ts-rest{% endif %}">
+          <td>
+            <strong class="ts-date">{{ row.date_display }}</strong>
+            <small>{{ row.day_long }}</small>
+          </td>
+          <td>
+            {% if row.time_range != '—' %}
+            <strong class="ts-time-range">{{ row.time_range }}</strong>
+            {% else %}
+            <strong class="ts-time-empty">—</strong>
+            {% endif %}
+            <small class="ts-hours">{{ row.hours_label }}</small>
+          </td>
+          <td>{{ row.day_kind }}</td>
+          <td>
+            {% if row.short_excess_minutes is not none and row.short_excess_minutes < 0 %}
+            <span class="ts-short">{{ row.short_excess }}</span>
+            {% elif row.short_excess_minutes is not none and row.short_excess_minutes > 0 %}
+            <span class="ts-excess">{{ row.short_excess }}</span>
+            {% else %}
+            {{ row.short_excess }}
+            {% endif %}
+          </td>
+          <td class="timesheet-actions">
+            {% if row.can_request_attendance %}
+            <button type="button" class="text-btn" data-late-date="{{ row.date }}">Request attendance</button>
+            {% endif %}
+            {% if row.can_apply_leave %}
+            <button type="button" class="text-btn" onclick="openLeaveModal('{{ row.date }}')">Apply leave</button>
+            {% endif %}
+            {% if row.status_key == 'pending' %}
+            <span class="soft-badge">Awaiting HR</span>
+            {% elif not row.can_request_attendance and not row.can_apply_leave and row.status_key != 'pending' %}
+            —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><p>No days in this period.</p></div>
+  {% endif %}
+</section>
+
+{# Check in / out modal — system camera + GPS #}
+<div class="modal-backdrop" id="punchModal" hidden>
+  <div class="modal punch-modal" role="dialog" aria-modal="true" aria-labelledby="punchTitle">
+    <div class="modal-head">
+      <div>
+        <div class="eyebrow">ATTENDANCE</div>
+        <h2 id="punchTitle">Check in</h2>
+        <p>Opens your device camera. Location must be on.</p>
+      </div>
+      <button type="button" class="icon" id="punchClose" aria-label="Close">✕</button>
     </div>
-    {% else %}
-    <div class="empty"><p>No days in this period.</p></div>
-    {% endif %}
-  </section>
+    <div class="form-body">
+      <div class="gps-status" id="gpsStatus">
+        <span class="gps-pin" aria-hidden="true">◎</span>
+        <div>
+          <strong id="gpsTitle">Location required</strong>
+          <span id="gpsDetail">Tap Allow location in any browser. Attendance will not save if Location is off.</span>
+        </div>
+        <button type="button" class="secondary" id="gpsRefresh">Allow location</button>
+      </div>
+
+      <div class="punch-selfie-box">
+        <img id="selfiePreview" alt="Selfie preview" hidden>
+        <div class="selfie-empty" id="selfieEmpty">Take a selfie with your phone camera</div>
+        <input type="file" id="selfieInput" accept="image/*" capture="user" hidden>
+        <div class="selfie-actions">
+          <button type="button" class="secondary" id="selfieStart">Open camera</button>
+          <button type="button" class="text-btn" id="selfieRetake" hidden>Retake</button>
+        </div>
+        <p class="punch-note">Uses the system camera app when available. Photo is for HR evidence only.</p>
+      </div>
+
+      <div class="alert error" id="attError" hidden role="alert"></div>
+      <div class="alert success" id="attSuccess" hidden role="status"></div>
+      <div class="punch-progress" id="attBusy" hidden role="status">Saving punch…</div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="secondary" id="punchCancel">Cancel</button>
+      <button type="button" class="primary" id="punchConfirm">Confirm check in</button>
+    </div>
+  </div>
 </div>
 
 {# Late attendance request #}
@@ -184,45 +237,79 @@
 <script>
 (function(){
   const csrf=document.querySelector('meta[name=csrf-token]')?.content||'';
-  const clockEl=document.getElementById('attClock');
-  const onlineLabel=document.getElementById('attOnlineLabel');
   const gpsTitle=document.getElementById('gpsTitle');
   const gpsDetail=document.getElementById('gpsDetail');
   const errEl=document.getElementById('attError');
   const okEl=document.getElementById('attSuccess');
   const busyEl=document.getElementById('attBusy');
-  const video=document.getElementById('selfieVideo');
-  const canvas=document.getElementById('selfieCanvas');
   const preview=document.getElementById('selfiePreview');
   const empty=document.getElementById('selfieEmpty');
+  const fileInput=document.getElementById('selfieInput');
   const btnStart=document.getElementById('selfieStart');
-  const btnSnap=document.getElementById('selfieSnap');
   const btnRetake=document.getElementById('selfieRetake');
-  const btnIn=document.getElementById('btnCheckIn');
-  const btnOut=document.getElementById('btnCheckOut');
-  let stream=null, point=null, selfieBlob=null, busy=false;
+  const btnConfirm=document.getElementById('punchConfirm');
+  const punchModal=document.getElementById('punchModal');
+  const punchTitle=document.getElementById('punchTitle');
+  let point=null, selfieBlob=null, busy=false, punchAction='in';
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||isIOS;
 
-  function setOnline(){
-    const on=navigator.onLine;
-    if(onlineLabel) onlineLabel.textContent=on?'ONLINE':'OFFLINE';
-  }
-  window.addEventListener('online', setOnline);
-  window.addEventListener('offline', setOnline);
-  setOnline();
-
-  function tick(){
-    if(!clockEl) return;
-    clockEl.textContent=new Intl.DateTimeFormat('en-US',{
-      timeZone:'Asia/Dubai', hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true
-    }).format(new Date());
-  }
-  tick();
-  setInterval(tick, 1000);
+  /* —— Shift timer (spent / remaining) —— */
+  (function initTimer(){
+    const bar=document.getElementById('shiftTimerBar');
+    if(!bar) return;
+    const spentEl=document.getElementById('tsTimerSpent');
+    const remainEl=document.getElementById('tsTimerRemain');
+    const fillEl=document.getElementById('tsTimerFill');
+    const official=parseInt(bar.dataset.officialMin||'480',10)||480;
+    const checkedIn=bar.dataset.checkedIn==='1';
+    const checkInMin=parseInt(bar.dataset.checkInMin||'',10);
+    const checkInDate=bar.dataset.checkInDate||'';
+    const serverNow=bar.dataset.serverNow||'';
+    let skew=0;
+    if(serverNow){
+      const serverMs=Date.parse(serverNow.replace(' ','T')+'+04:00');
+      if(!isNaN(serverMs)) skew=serverMs-Date.now();
+    }
+    function fmt(mins){
+      const m=Math.max(0,Math.floor(mins));
+      const h=Math.floor(m/60), mm=m%60;
+      return String(h).padStart(2,'0')+' h '+String(mm).padStart(2,'0')+' m';
+    }
+    function dubaiParts(ms){
+      const parts=new Intl.DateTimeFormat('en-GB',{
+        timeZone:'Asia/Dubai', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+      }).formatToParts(new Date(ms));
+      const get=t=>parts.find(p=>p.type===t)?.value||'0';
+      return {date:get('year')+'-'+get('month')+'-'+get('day'), minutes:parseInt(get('hour'),10)*60+parseInt(get('minute'),10), seconds:parseInt(get('second'),10)};
+    }
+    function tick(){
+      if(!checkedIn || isNaN(checkInMin)){
+        if(spentEl) spentEl.textContent='00 h 00 m';
+        if(remainEl) remainEl.textContent=fmt(official);
+        if(fillEl) fillEl.style.width='0%';
+        bar.classList.toggle('ts-timer-idle', true);
+        return;
+      }
+      bar.classList.remove('ts-timer-idle');
+      const now=dubaiParts(Date.now()+skew);
+      let spent=now.minutes-checkInMin + (now.seconds/60);
+      if(now.date!==checkInDate) spent+=24*60;
+      if(spent<0) spent=0;
+      const remain=Math.max(0, official-spent);
+      const pct=Math.min(100, (spent/official)*100);
+      if(spentEl) spentEl.textContent=fmt(spent);
+      if(remainEl) remainEl.textContent=spent>=official ? 'Done · +'+fmt(spent-official)+' OT' : fmt(remain);
+      if(fillEl) fillEl.style.width=pct+'%';
+      bar.classList.toggle('ts-timer-over', spent>=official);
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
 
   function showErr(msg){
-    if(okEl){okEl.hidden=true;}
+    if(okEl) okEl.hidden=true;
     if(!errEl) return;
     errEl.hidden=!msg;
     errEl.textContent=msg||'';
@@ -236,15 +323,15 @@
   function setBusy(on, label){
     busy=!!on;
     if(busyEl){busyEl.hidden=!on; busyEl.textContent=label||'Saving punch…';}
-    [btnIn,btnOut,btnStart,btnSnap,btnRetake,document.getElementById('gpsRefresh')].forEach(function(b){
-      if(b && b!==btnSnap) b.disabled=on || (b.dataset.locked==='1');
+    [btnConfirm,btnStart,btnRetake,document.getElementById('gpsRefresh')].forEach(function(b){
+      if(b) b.disabled=!!on;
     });
   }
 
   function markGpsFailed(msg){
     point=null;
     if(gpsTitle) gpsTitle.textContent='Location off / unavailable';
-    if(gpsDetail) gpsDetail.textContent=msg||'Turn on device Location (GPS), allow this site, then tap Get GPS.';
+    if(gpsDetail) gpsDetail.textContent=msg||'Turn on device Location (GPS), allow this site, then tap Allow location.';
   }
 
   function locate(){
@@ -266,12 +353,7 @@
           reject(new Error('Attendance failed: device location is off or returned no GPS fix. Turn Location on and retry.'));
           return;
         }
-        point={
-          latitude:lat,
-          longitude:lng,
-          accuracy:p.coords.accuracy,
-          timestamp:p.timestamp
-        };
+        point={latitude:lat, longitude:lng, accuracy:p.coords.accuracy, timestamp:p.timestamp};
         if(gpsTitle) gpsTitle.textContent='GPS captured';
         if(gpsDetail) gpsDetail.textContent='Accuracy ±'+Math.round(p.coords.accuracy||0)+' m · HR can open this on a map';
         resolve(point);
@@ -290,84 +372,82 @@
     showErr('');
     if(gpsTitle) gpsTitle.textContent='Waiting for permission…';
     if(gpsDetail) gpsDetail.textContent=isIOS
-      ? 'iPhone / iPad: choose Allow when your browser asks for Location (Safari, Chrome, or any browser).'
+      ? 'iPhone / iPad: choose Allow when your browser asks for Location.'
       : 'Allow Location when your phone asks, then wait for GPS.';
     setBusy(true, 'Asking for location…');
     return locate().then(function(){
       setBusy(false);
       showErr('');
-      showOk('Location allowed. You can check in / out.');
-      setTimeout(function(){ if(okEl) okEl.hidden=true; }, 2500);
+      showOk('Location allowed.');
+      setTimeout(function(){ if(okEl) okEl.hidden=true; }, 2000);
     }).catch(function(e){
       setBusy(false);
       showErr(e.message);
     });
   }
 
-  document.getElementById('gpsRefresh')?.addEventListener('click', function(){
-    requestLocationPermission();
-  });
+  document.getElementById('gpsRefresh')?.addEventListener('click', requestLocationPermission);
 
-  async function startCamera(){
-    showErr('');
-    try{
-      if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
-      stream=await navigator.mediaDevices.getUserMedia({
-        audio:false,
-        video:{ facingMode:'user', width:{ideal:720}, height:{ideal:720} }
-      });
-      video.srcObject=stream;
-      video.hidden=false;
-      preview.hidden=true;
-      empty.hidden=true;
-      btnSnap.disabled=false;
-      btnRetake.hidden=true;
-      selfieBlob=null;
-    }catch(e){
-      showErr('Camera permission is required to take your selfie.');
+  function resetSelfie(){
+    selfieBlob=null;
+    if(preview){ preview.hidden=true; preview.removeAttribute('src'); }
+    if(empty) empty.hidden=false;
+    if(btnRetake) btnRetake.hidden=true;
+    if(fileInput) fileInput.value='';
+  }
+
+  function openPunchModal(action){
+    punchAction=action==='out'?'out':'in';
+    if(punchTitle) punchTitle.textContent=punchAction==='out'?'Check out':'Check in';
+    if(btnConfirm) btnConfirm.textContent=punchAction==='out'?'Confirm check out':'Confirm check in';
+    resetSelfie();
+    showErr(''); showOk('');
+    if(gpsDetail) gpsDetail.textContent=isMobile
+      ? 'Tap Allow location, then open the camera. Works in any browser.'
+      : 'Allow location, then take a selfie.';
+    if(punchModal){
+      punchModal.hidden=false;
+      document.body.style.overflow='hidden';
     }
   }
-
-  function stopCamera(){
-    if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
-    video.hidden=true;
+  function closePunchModal(){
+    if(!punchModal) return;
+    punchModal.hidden=true;
+    document.body.style.overflow='';
+    resetSelfie();
   }
 
-  function takeSelfie(){
-    if(!stream) return;
-    const w=video.videoWidth||640, h=video.videoHeight||640;
-    canvas.width=w; canvas.height=h;
-    const ctx=canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, w, h);
-    canvas.toBlob(function(blob){
-      if(!blob){ showErr('Could not capture selfie. Try again.'); return; }
-      selfieBlob=blob;
-      preview.src=URL.createObjectURL(blob);
-      preview.hidden=false;
-      empty.hidden=true;
-      stopCamera();
-      btnSnap.disabled=true;
-      btnRetake.hidden=false;
-      btnStart.textContent='Open camera';
-    }, 'image/jpeg', 0.82);
-  }
+  document.getElementById('openPunchIn')?.addEventListener('click', function(){ openPunchModal('in'); });
+  document.getElementById('openPunchOut')?.addEventListener('click', function(){ openPunchModal('out'); });
+  document.getElementById('punchClose')?.addEventListener('click', closePunchModal);
+  document.getElementById('punchCancel')?.addEventListener('click', closePunchModal);
+  document.addEventListener('click', function(e){ if(e.target.id==='punchModal') closePunchModal(); });
 
-  btnStart?.addEventListener('click', startCamera);
-  btnSnap?.addEventListener('click', takeSelfie);
-  btnRetake?.addEventListener('click', function(){
-    selfieBlob=null;
-    preview.hidden=true;
-    startCamera();
+  btnStart?.addEventListener('click', function(){ fileInput?.click(); });
+  btnRetake?.addEventListener('click', function(){ resetSelfie(); fileInput?.click(); });
+
+  fileInput?.addEventListener('change', function(){
+    const file=fileInput.files && fileInput.files[0];
+    if(!file) return;
+    if(!file.type || !file.type.startsWith('image/')){
+      showErr('Please take or choose a photo.');
+      return;
+    }
+    selfieBlob=file;
+    const url=URL.createObjectURL(file);
+    if(preview){ preview.src=url; preview.hidden=false; }
+    if(empty) empty.hidden=true;
+    if(btnRetake) btnRetake.hidden=false;
+    showErr('');
   });
 
-  async function punch(action){
+  async function punch(){
     if(busy) return;
     if(!navigator.onLine){ showErr('You are offline. Connect to the internet to punch.'); return; }
     showErr(''); showOk('');
-    setBusy(true, action==='in'?'Getting GPS for check-in…':'Getting GPS for check-out…');
+    setBusy(true, punchAction==='in'?'Getting GPS for check-in…':'Getting GPS for check-out…');
     try{
-      if(!selfieBlob) throw new Error('Take a selfie before punching.');
-      // Fresh GPS on every punch (iOS only shows the system prompt after a tap)
+      if(!selfieBlob) throw new Error('Take a selfie with the camera before confirming.');
       const location=await locate();
       if(!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)){
         throw new Error('Attendance failed: device location is off. Tap Allow location, turn Location on, then try again.');
@@ -375,7 +455,7 @@
       setBusy(true, 'Saving punch…');
       const fd=new FormData();
       fd.append('csrf_token', csrf);
-      fd.append('action', action);
+      fd.append('action', punchAction);
       fd.append('location', JSON.stringify(location));
       fd.append('selfie', selfieBlob, 'selfie.jpg');
       const res=await fetch({{ url_for('employee.attendance')|tojson }}, {
@@ -393,19 +473,7 @@
       setBusy(false);
     }
   }
-
-  btnIn?.addEventListener('click', function(){ punch('in'); });
-  btnOut?.addEventListener('click', function(){ punch('out'); });
-
-  // Mobile: do not auto-request on load (browsers block that). Use Allow location button + punch tap.
-  // Android APK requests OS Location permission when the app opens.
-  if(!isIOS && !isMobile){
-    locate().catch(function(){});
-  } else if(gpsDetail){
-    gpsDetail.textContent=isIOS
-      ? 'iPhone / iPad: tap Allow location in any browser (Safari, Chrome, etc.), then choose Allow.'
-      : 'Tap Allow location so your browser or app can show the Location permission.';
-  }
+  btnConfirm?.addEventListener('click', punch);
 
   window.openLateModal=function(date){
     const modal=document.getElementById('lateAttModal');
@@ -428,7 +496,9 @@
   });
   document.addEventListener('click',function(e){ if(e.target.id==='lateAttModal') closeLateModal(); });
   document.addEventListener('keydown',function(e){
-    if(e.key==='Escape' && document.getElementById('lateAttModal') && !document.getElementById('lateAttModal').hidden) closeLateModal();
+    if(e.key!=='Escape') return;
+    if(punchModal && !punchModal.hidden) closePunchModal();
+    else if(document.getElementById('lateAttModal') && !document.getElementById('lateAttModal').hidden) closeLateModal();
   });
 })();
 </script>

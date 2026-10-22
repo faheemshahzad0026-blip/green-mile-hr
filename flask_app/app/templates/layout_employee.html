@@ -186,7 +186,8 @@
         lastCount=unread;
       }).catch(function(){});
   }
-  setInterval(poll, 45000);
+  setInterval(poll, 12000);
+  setTimeout(poll, 2000);
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) poll(); });
 })();
 </script>

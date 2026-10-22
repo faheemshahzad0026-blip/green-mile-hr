@@ -12,13 +12,37 @@ import android.view.WindowInsets;
 public class MainActivity extends Activity {
  private static final String BASE="https://green-mile-attendance.hnzt8zxtkm.chatgpt.site";
  private byte[] pendingPdf; private WebView web;private ProgressBar loading;private PermissionRequest cameraRequest;private GeolocationPermissions.Callback gpsCallback;private String gpsOrigin;
+ private ValueCallback<Uri[]> filePathCallback; private Uri cameraImageUri;
  private boolean trusted(String origin){try{return "https".equals(Uri.parse(origin).getScheme())&&Uri.parse(BASE).getHost().equals(Uri.parse(origin).getHost());}catch(Exception e){return false;}}
  @Override public void onCreate(Bundle saved){super.onCreate(saved);getWindow().setStatusBarColor(Color.rgb(23,63,44));getWindow().setNavigationBarColor(Color.rgb(23,63,44));LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.rgb(225,236,213));root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener(){@Override public WindowInsets onApplyWindowInsets(View v,WindowInsets insets){v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;}});loading=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);root.addView(loading,new LinearLayout.LayoutParams(-1,5));web=new WebView(this);root.addView(web,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
  // Ask for Location (+ Camera) as soon as the app opens — required before attendance GPS works
  ensureRuntimePermissions();
  WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setGeolocationEnabled(true);settings.setGeolocationDatabasePath(getFilesDir().getPath());settings.setMediaPlaybackRequiresUserGesture(false);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);settings.setCacheMode(WebSettings.LOAD_NO_CACHE);settings.setSupportMultipleWindows(false);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);web.setBackgroundColor(Color.rgb(225,236,213));WebView.setWebContentsDebuggingEnabled(false);
  web.setWebViewClient(new WebViewClient(){@Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest r){return !trusted(r.getUrl().toString());}@Override public void onPageFinished(WebView v,String url){loading.setVisibility(View.GONE);}@Override public void onReceivedError(WebView v,WebResourceRequest r,WebResourceError e){if(r.isForMainFrame())showOffline();}});
- web.setWebChromeClient(new WebChromeClient(){@Override public void onProgressChanged(WebView v,int p){loading.setVisibility(p<100?View.VISIBLE:View.GONE);loading.setProgress(p);}@Override public void onPermissionRequest(PermissionRequest request){runOnUiThread(new Runnable(){@Override public void run(){if(!trusted(request.getOrigin().toString())){request.deny();return;}for(String resource:request.getResources())if(!PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)){request.deny();return;}if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});else{cameraRequest=request;requestPermissions(new String[]{Manifest.permission.CAMERA},11);}}});}@Override public void onPermissionRequestCanceled(PermissionRequest request){if(cameraRequest==request)cameraRequest=null;} @Override public void onGeolocationPermissionsShowPrompt(String origin,GeolocationPermissions.Callback callback){if(!trusted(origin)){callback.invoke(origin,false,false);return;}if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED)callback.invoke(origin,true,false);else{gpsOrigin=origin;gpsCallback=callback;requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},12);}}});
+ web.setWebChromeClient(new WebChromeClient(){@Override public void onProgressChanged(WebView v,int p){loading.setVisibility(p<100?View.VISIBLE:View.GONE);loading.setProgress(p);}@Override public void onPermissionRequest(PermissionRequest request){runOnUiThread(new Runnable(){@Override public void run(){if(!trusted(request.getOrigin().toString())){request.deny();return;}for(String resource:request.getResources())if(!PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)){request.deny();return;}if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});else{cameraRequest=request;requestPermissions(new String[]{Manifest.permission.CAMERA},11);}}});}@Override public void onPermissionRequestCanceled(PermissionRequest request){if(cameraRequest==request)cameraRequest=null;} @Override public void onGeolocationPermissionsShowPrompt(String origin,GeolocationPermissions.Callback callback){if(!trusted(origin)){callback.invoke(origin,false,false);return;}if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED)callback.invoke(origin,true,false);else{gpsOrigin=origin;gpsCallback=callback;requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},12);}}
+  @Override public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> callback, FileChooserParams params){
+   if(filePathCallback!=null){filePathCallback.onReceiveValue(null);filePathCallback=null;}
+   filePathCallback=callback; cameraImageUri=null;
+   android.content.Intent camera=null;
+   try{
+    android.content.ContentValues values=new android.content.ContentValues();
+    values.put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/jpeg");
+    values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"gm_attendance_"+System.currentTimeMillis()+".jpg");
+    cameraImageUri=getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values);
+   }catch(Exception e){cameraImageUri=null;}
+   if(cameraImageUri!=null){
+    camera=new android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+    camera.putExtra(android.provider.MediaStore.EXTRA_OUTPUT,cameraImageUri);
+    camera.addFlags(android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION|android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+   }
+   android.content.Intent gallery=new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT);
+   gallery.addCategory(android.content.Intent.CATEGORY_OPENABLE);gallery.setType("image/*");
+   android.content.Intent chooser=android.content.Intent.createChooser(gallery,"Take attendance selfie");
+   if(camera!=null) chooser.putExtra(android.content.Intent.EXTRA_INITIAL_INTENTS,new android.content.Intent[]{camera});
+   try{startActivityForResult(chooser,31);}catch(Exception e){if(filePathCallback!=null){filePathCallback.onReceiveValue(null);filePathCallback=null;}return false;}
+   return true;
+  }
+ });
  web.addJavascriptInterface(new PdfBridge(),"GreenMileNative");web.loadUrl(BASE+"/");}
  private void ensureRuntimePermissions(){
   java.util.ArrayList<String> need=new java.util.ArrayList<>();
@@ -41,7 +65,17 @@ public class MainActivity extends Activity {
  runOnUiThread(new Runnable(){public void run(){if(!trusted(web.getUrl()))return;if(pendingPdf!=null){pdfMessage("Finish the current PDF save first.");return;}if(share){try{java.io.File dir=new java.io.File(getCacheDir(),"salary-pdfs");dir.mkdirs();java.io.File file=new java.io.File(dir,filename);try(java.io.FileOutputStream out=new java.io.FileOutputStream(file)){out.write(bytes);}Uri uri=Uri.parse("content://net.greenmile.attendance.pdf/"+filename);android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_SEND);intent.setType("application/pdf");intent.putExtra(android.content.Intent.EXTRA_STREAM,uri);intent.setClipData(android.content.ClipData.newRawUri("Salary PDF",uri));intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(android.content.Intent.createChooser(intent,"Share salary PDF"));}catch(Exception e){pdfMessage("Could not share PDF. Try Save PDF.");}}else{pendingPdf=bytes;android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);intent.setType("application/pdf");intent.putExtra(android.content.Intent.EXTRA_TITLE,filename);try{startActivityForResult(intent,21);}catch(Exception e){pendingPdf=null;pdfMessage("File picker unavailable. Try Share PDF.");}}}});
  }
  }
- @Override protected void onActivityResult(int request,int result,android.content.Intent data){super.onActivityResult(request,result,data);if(request!=21)return;final byte[] bytes=pendingPdf;pendingPdf=null;if(result!=RESULT_OK||data==null||data.getData()==null||bytes==null)return;final Uri uri=data.getData();new Thread(new Runnable(){public void run(){try(java.io.OutputStream out=getContentResolver().openOutputStream(uri,"w")){if(out==null)throw new java.io.IOException();out.write(bytes);runOnUiThread(new Runnable(){public void run(){pdfMessage("PDF saved successfully.");}});}catch(Exception e){runOnUiThread(new Runnable(){public void run(){pdfMessage("PDF could not be saved. Retry and choose another folder.");}});}}}).start();}
+ @Override protected void onActivityResult(int request,int result,android.content.Intent data){super.onActivityResult(request,result,data);
+  if(request==31){
+   Uri[] uris=null;
+   if(result==RESULT_OK){
+    if(data!=null && data.getData()!=null) uris=new Uri[]{data.getData()};
+    else if(cameraImageUri!=null) uris=new Uri[]{cameraImageUri};
+   }
+   if(filePathCallback!=null){filePathCallback.onReceiveValue(uris);filePathCallback=null;}
+   cameraImageUri=null; return;
+  }
+  if(request!=21)return;final byte[] bytes=pendingPdf;pendingPdf=null;if(result!=RESULT_OK||data==null||data.getData()==null||bytes==null)return;final Uri uri=data.getData();new Thread(new Runnable(){public void run(){try(java.io.OutputStream out=getContentResolver().openOutputStream(uri,"w")){if(out==null)throw new java.io.IOException();out.write(bytes);runOnUiThread(new Runnable(){public void run(){pdfMessage("PDF saved successfully.");}});}catch(Exception e){runOnUiThread(new Runnable(){public void run(){pdfMessage("PDF could not be saved. Retry and choose another folder.");}});}}}).start();}
  @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] results){super.onRequestPermissionsResult(requestCode,permissions,results);
   if(requestCode==10){
    boolean loc=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;

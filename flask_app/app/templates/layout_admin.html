@@ -30,6 +30,7 @@
       <a class="nav {% if request.endpoint == 'agency.dashboard' %}active{% endif %}" href="{{ url_for('agency.dashboard') }}"><span>Dashboard</span></a>
       <a class="nav {% if request.endpoint == 'modules.employee_profile' or (request.endpoint == 'modules.module_list' and request.view_args and request.view_args.get('kind') == 'employees') %}active{% endif %}" href="{{ url_for('modules.module_list', kind='employees') }}"><span>Employees</span></a>
       <a class="nav {% if request.endpoint == 'modules.attendance_hub' %}active{% endif %}" href="{{ url_for('modules.attendance_hub') }}"><span>Attendance</span></a>
+      <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args and request.view_args.get('kind') == 'leave' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='leave') }}"><span>Leave requests</span></a>
       <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'shifts' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='shifts') }}"><span>Shifts &amp; schedules</span></a>
       <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'announcements' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='announcements') }}"><span>HR announcements</span></a>
       <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'departments' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='departments') }}"><span>Departments</span></a>
@@ -123,21 +124,21 @@
         </div>
 
         <div class="header-menu">
-          <button type="button" class="icon bell notify-btn header-menu-btn" aria-haspopup="true" aria-expanded="false" onclick="toggleHeaderMenu(this)" title="Notifications">
+          <button type="button" class="icon bell notify-btn header-menu-btn" aria-haspopup="true" aria-expanded="false" onclick="toggleHeaderMenu(this)" title="Notifications" id="adminNotifyBtn">
             <span class="bell-glyph" aria-hidden="true">🔔</span>
-            {% if notify_count %}<b class="request-count">{{ notify_count if notify_count < 100 else '99+' }}</b>{% endif %}
+            {% if notify_count %}<b class="request-count" id="adminNotifyBadge">{{ notify_count if notify_count < 100 else '99+' }}</b>{% else %}<b class="request-count" id="adminNotifyBadge" hidden>0</b>{% endif %}
           </button>
-          <div class="header-dropdown notify-dropdown cool-dropdown">
+          <div class="header-dropdown notify-dropdown cool-dropdown" id="adminNotifyDrop">
             <div class="notify-hero">
               <div>
                 <strong>Notifications</strong>
-                <span>{% if notify_count %}{{ notify_count }} open item{{ 's' if notify_count != 1 else '' }}{% else %}You're all caught up{% endif %}</span>
+                <span id="adminNotifyHero">{% if notify_count %}{{ notify_count }} open item{{ 's' if notify_count != 1 else '' }}{% else %}You're all caught up{% endif %}</span>
               </div>
             </div>
-            <div class="notify-list">
+            <div class="notify-list" id="adminNotifyList">
               {% if notify_items %}
                 {% for item in notify_items %}
-                <a class="notify-item" href="{{ item.href }}">
+                <a class="notify-item" href="{{ item.href }}" data-notify-id="{{ item.id }}">
                   <span class="notify-dot"></span>
                   <span>
                     <strong>{{ item.title }}</strong>
@@ -149,7 +150,7 @@
                 <div class="header-dropdown-empty">No open employee requests right now.</div>
               {% endif %}
             </div>
-            <a class="header-dropdown-foot" href="{{ url_for('modules.module_list', kind='employees') }}">Review in Employees</a>
+            <a class="header-dropdown-foot" href="{{ url_for('modules.module_list', kind='leave') }}">Open leave requests</a>
           </div>
         </div>
 
@@ -204,6 +205,7 @@
           </div>
         {% endfor %}
       {% endwith %}
+      <div id="adminLiveToast" class="emp-live-toast" hidden role="status"></div>
 
       {% block content %}{% endblock %}
     </main>
@@ -225,5 +227,59 @@ if(!window.__gmAdminChromeBound){
     if(!e.target.closest('.header-menu')) document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
   });
 }
+(function adminNotifyLive(){
+  var url={{ url_for('modules.api_notifications')|tojson }};
+  var lastCount=Number({{ (notify_count if notify_count is defined else 0)|tojson }})||0;
+  var seenKey='gmAdminNotifySeen';
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+  function setBadge(n){
+    var b=document.getElementById('adminNotifyBadge');
+    var hero=document.getElementById('adminNotifyHero');
+    if(!b) return;
+    if(n>0){b.hidden=false;b.textContent=n<100?String(n):'99+';}
+    else{b.hidden=true;}
+    if(hero) hero.textContent=n?(n+' open item'+(n===1?'':'s')):"You're all caught up";
+  }
+  function renderList(items){
+    var list=document.getElementById('adminNotifyList');
+    if(!list) return;
+    if(!items||!items.length){
+      list.innerHTML='<div class="header-dropdown-empty">No open employee requests right now.</div>';
+      return;
+    }
+    list.innerHTML=items.map(function(it){
+      return '<a class="notify-item" href="'+esc(it.href||'#')+'" data-notify-id="'+esc(it.id||'')+'"><span class="notify-dot"></span><span><strong>'+
+        esc(it.title)+'</strong><small>'+esc(it.meta)+'</small></span></a>';
+    }).join('');
+  }
+  function toast(msg){
+    var el=document.getElementById('adminLiveToast');
+    if(!el) return;
+    el.hidden=false;
+    el.textContent=msg;
+    clearTimeout(el._t);
+    el._t=setTimeout(function(){el.hidden=true;},5500);
+  }
+  function poll(){
+    fetch(url,{credentials:'same-origin',headers:{'Accept':'application/json'}})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data||!data.ok) return;
+        var count=typeof data.count==='number'?data.count:((data.items||[]).length||0);
+        setBadge(count);
+        renderList(data.items||[]);
+        var ids=(data.items||[]).map(function(i){return i.id;}).join('|');
+        var prev=localStorage.getItem(seenKey)||'';
+        if(ids && ids!==prev && count>lastCount){
+          var first=(data.items&&data.items[0])||{};
+          toast((first.title||'New request')+' — tap the bell to open');
+        }
+        if(ids) localStorage.setItem(seenKey, ids);
+        lastCount=count;
+      }).catch(function(){});
+  }
+  setInterval(poll, 12000);
+  setTimeout(poll, 2500);
+})();
 </script>
 {% endblock %}

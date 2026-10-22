@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 
-from flask import flash, redirect, render_template, request, session, url_for
+from flask import flash, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 
 from app.decorators import admin_required
@@ -13,6 +13,7 @@ from app.modules import bp
 from app.utils import (
     get_active_agency,
     next_employee_code,
+    pending_notifications,
     save_agency_logo,
     save_employee_document_file,
     write_audit,
@@ -246,6 +247,18 @@ def attendance_hub():
     )
 
 
+@bp.route("/api/notifications")
+@login_required
+@admin_required
+def api_notifications():
+    """JSON feed for live admin bell (no page reload)."""
+    agency = get_active_agency()
+    if not agency:
+        return jsonify({"ok": False, "count": 0, "items": []}), 400
+    items = pending_notifications(agency.id, limit=20)
+    return jsonify({"ok": True, "count": len(items), "items": items})
+
+
 @bp.route("/search")
 @login_required
 @admin_required
@@ -274,6 +287,12 @@ def global_search():
                     )
                 if r.kind == "employees":
                     href = url_for("modules.employee_profile", record_id=r.id)
+                if r.kind == "leave":
+                    emp = (r.data or {}).get("employee") or ""
+                    leave_args = {"kind": "leave", "focus": r.id}
+                    if emp:
+                        leave_args["employee"] = emp
+                    href = url_for("modules.module_list", **leave_args)
                 results.append({"record": r, "href": href})
     return render_template(
         "modules/search.html",
@@ -482,7 +501,6 @@ def module_list(kind):
         "employeeFile",
         "leaveBalances",
         "globalSearch",
-        "leave",
         "payroll",
         "salaryPayments",
         "adjustments",
@@ -493,7 +511,7 @@ def module_list(kind):
     }:
         if kind == "globalSearch":
             return redirect(url_for("modules.global_search", q=request.args.get("q")))
-        if kind in {"employeeFile", "leave", "mobileAccess", "staff"}:
+        if kind in {"employeeFile", "mobileAccess", "staff"}:
             flash("Manage this from the Employees list.", "info")
             return redirect(url_for("modules.module_list", kind="employees"))
         flash("This module is not used in the current workspace menu.", "info")
@@ -550,6 +568,41 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
             flash("Record deleted.", "success")
             return _redirect_after()
 
+        # Leave: quick approve / reject (✓ / ✕) — notifies employee via portal bell
+        if kind == "leave" and action in {"Approved", "Rejected"}:
+            from app.employee.services import review_leave_request
+
+            try:
+                lid = int(request.form.get("id") or 0)
+                review_leave_request(
+                    agency.id,
+                    lid,
+                    action,
+                    (request.form.get("reviewNote") or "").strip(),
+                )
+                write_audit(
+                    f"leave_{action.lower()}",
+                    f"#{lid}",
+                    agency_id=agency.id,
+                )
+                db.session.commit()
+                flash(
+                    "Leave approved. Employee will get a notification."
+                    if action == "Approved"
+                    else "Leave rejected. Employee will get a notification.",
+                    "success",
+                )
+            except ValueError as exc:
+                db.session.rollback()
+                flash(str(exc), "danger")
+            emp = (request.args.get("employee") or request.form.get("employee") or "").strip()
+            focus = (request.form.get("id") or "").strip()
+            if emp:
+                return redirect(
+                    url_for("modules.module_list", kind="leave", employee=emp, focus=focus)
+                )
+            return redirect(url_for("modules.module_list", kind="leave", focus=focus))
+
         # App access modal actions from Employees listing
         if kind == "employees" and action in {
             "toggle_app",
@@ -598,6 +651,20 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
                         data["code"] = prev.get("code")
                     if prev.get("authEmployeeId") and not data.get("authEmployeeId"):
                         data["authEmployeeId"] = prev.get("authEmployeeId")
+                if kind == "leave":
+                    from app.employee.services import dubai_now_iso
+
+                    prev = rec.data or {}
+                    # Keep dayPart / days / source from employee app when HR edits status
+                    for keep in ("dayPart", "days", "source", "reason"):
+                        if not data.get(keep) and prev.get(keep):
+                            data[keep] = prev.get(keep)
+                    if (data.get("status") or "") in {"Approved", "Rejected"} and (
+                        prev.get("status") or ""
+                    ) == "Pending":
+                        data["reviewedAt"] = dubai_now_iso()
+                        if prev.get("reviewNote") and not data.get("reviewNote"):
+                            data["reviewNote"] = prev.get("reviewNote")
                 rec.data = data
                 write_audit("hr_update", f"{kind}#{rec.id}", agency_id=agency.id)
             else:
@@ -686,8 +753,18 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
         form_defaults.setdefault("audience", "All employees")
         form_defaults.setdefault("status", "Published")
 
+    # Leave: pending first so HR can act quickly
+    if kind == "leave":
+        def _leave_sort_key(r):
+            st = ((r.data or {}).get("status") or "").lower()
+            pending = 0 if st == "pending" else 1
+            return (pending, -(r.id or 0))
+
+        records = sorted(records, key=_leave_sort_key)
+
     rows = []
     reveal_pins = {}
+    focus_id = (request.args.get("focus") or "").strip()
     for r in records:
         data = r.data or {}
         auth = None
@@ -718,6 +795,7 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
                 "emp_ref": emp_ref or str(r.id),
                 "employment_status": employment,
                 "reveal_pin": reveal_pins.get(str(r.id), ""),
+                "is_focus": focus_id and str(r.id) == focus_id,
             }
         )
 
@@ -740,6 +818,7 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
         q=q,
         tab=tab,
         read_only=read_only,
+        focus_id=focus_id,
         # Modals open only on button click (not on page load / ?new / ?edit)
         show_form=False,
         open_employee_form=False,

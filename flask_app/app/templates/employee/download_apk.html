@@ -10,7 +10,7 @@
   <p>Use your normal login after install. Menus depend on your role.</p>
   <div class="install-note" style="text-align:left;margin:16px 0">
     <strong>Location permission</strong>
-    <p style="margin:8px 0 0">Android APK asks for Location when you open the app. On iPhone / iPad, open Attendance in any browser (Safari, Chrome, Firefox, Edge, etc.), tap <em>Allow location</em>, then choose <em>Allow</em>. Attendance will not save if Location is off.</p>
+    <p style="margin:8px 0 0">Android APK (v1.6) asks for Location when you open the app, and opens the system camera for check-in selfies. On iPhone / iPad, open Time Sheet in any browser, tap Check in, then <em>Allow location</em> and <em>Open camera</em>. Attendance will not save if Location is off.</p>
   </div>
   {% if apk_ready %}
     <a class="primary" href="{{ url_for('employee.apk_file') }}">Download APK</a>

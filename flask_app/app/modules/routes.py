@@ -379,7 +379,6 @@ def employee_profile(record_id):
                     doc_rec.data = data
                     write_audit("doc_update", f"employee {emp_key} #{rid}", agency_id=agency.id)
                     db.session.commit()
-                    flash("Document updated.", "success")
                 else:
                     if not payload["number"] and not path:
                         raise ValueError("Enter a document number/title or upload a file.")
@@ -393,7 +392,6 @@ def employee_profile(record_id):
                     db.session.add(HrRecord(agency_id=agency.id, kind="documents", data=doc))
                     write_audit("doc_upload", f"employee {emp_key}", agency_id=agency.id)
                     db.session.commit()
-                    flash("Document saved for this employee.", "success")
             except ValueError as exc:
                 db.session.rollback()
                 flash(str(exc), "danger")
@@ -522,7 +520,6 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
             db.session.delete(rec)
             write_audit("hr_delete", f"{kind}#{rid}", agency_id=agency.id)
             db.session.commit()
-            flash("Record deleted.", "success")
             return _redirect_after()
 
         # Leave is employee-applied only — HR may approve / reject, not create
@@ -637,21 +634,7 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
             db.session.commit()
             if kind == "employees" and generated_pin:
                 session[f"reveal_pin_{rec.id}"] = generated_pin
-                flash(
-                    f"Employee saved. ID {data.get('code')} · App PIN {generated_pin} (copy now — shown once).",
-                    "success",
-                )
                 return redirect(url_for("modules.module_list", kind="employees", app=rec.id))
-            if kind == "announcements" and (data.get("status") or "") == "Published":
-                audience = data.get("audience") or "All employees"
-                flash(
-                    f"Announcement published for {audience}. Employees will see it on their portal and in the app notifications.",
-                    "success",
-                )
-            elif kind == "shifts":
-                flash("Shift assigned. The employee can see it under Shifts & schedules.", "success")
-            else:
-                flash("Saved successfully.", "success")
             if kind == "employees" and not record_id:
                 return redirect(url_for("modules.module_list", kind="employees", app=rec.id))
         except ValueError as exc:
@@ -817,8 +800,6 @@ def _employee_app_access_action(agency, action):
             )
         if error:
             flash(error, "danger")
-        else:
-            flash(message, "success")
         return redirect(url_for("modules.module_list", kind="employees", app=rec.id))
 
     rid = int(request.form.get("id") or 0)
@@ -1023,7 +1004,6 @@ def admin_login_settings():
             )
 
         db.session.commit()
-        flash("Account settings updated.", "success")
         return redirect(url_for("modules.admin_login_settings"))
     return render_template("modules/admin_login.html", agency=agency)
 

@@ -64,7 +64,6 @@ def agency_create():
         db.session.add(admin)
         write_audit("agency_create", f"Created agency {agency.name}", agency_id=agency.id)
         db.session.commit()
-        flash(f"Agency '{agency.name}' created.", "success")
         return redirect(url_for("super_admin.agencies"))
     return render_template("super_admin/agency_form.html", form=form, title="Create agency")
 
@@ -98,7 +97,6 @@ def agency_edit(agency_id):
             )
         write_audit("agency_update", f"Updated agency {agency.name}", agency_id=agency.id)
         db.session.commit()
-        flash("Agency updated.", "success")
         return redirect(url_for("super_admin.agencies"))
     return render_template(
         "super_admin/agency_form.html",
@@ -165,7 +163,6 @@ def users():
                 agency_id=user.agency_id,
             )
             db.session.commit()
-            flash(f"User '{user.username}' created.", "success")
             return redirect(url_for("super_admin.users"))
 
     users_list = (

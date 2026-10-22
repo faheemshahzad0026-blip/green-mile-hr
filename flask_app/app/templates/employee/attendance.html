@@ -185,7 +185,6 @@
       </div>
 
       <div class="alert error" id="attError" hidden role="alert"></div>
-      <div class="alert success" id="attSuccess" hidden role="status"></div>
       <div class="punch-progress" id="attBusy" hidden role="status">Saving punch…</div>
     </div>
     <div class="modal-foot">
@@ -238,7 +237,6 @@
   const gpsTitle=document.getElementById('gpsTitle');
   const gpsDetail=document.getElementById('gpsDetail');
   const errEl=document.getElementById('attError');
-  const okEl=document.getElementById('attSuccess');
   const busyEl=document.getElementById('attBusy');
   const preview=document.getElementById('selfiePreview');
   const empty=document.getElementById('selfieEmpty');
@@ -307,16 +305,9 @@
   })();
 
   function showErr(msg){
-    if(okEl) okEl.hidden=true;
     if(!errEl) return;
     errEl.hidden=!msg;
     errEl.textContent=msg||'';
-  }
-  function showOk(msg){
-    if(errEl) errEl.hidden=true;
-    if(!okEl) return;
-    okEl.hidden=!msg;
-    okEl.textContent=msg||'';
   }
   function setBusy(on, label){
     busy=!!on;
@@ -376,8 +367,6 @@
     return locate().then(function(){
       setBusy(false);
       showErr('');
-      showOk('Location allowed.');
-      setTimeout(function(){ if(okEl) okEl.hidden=true; }, 2000);
     }).catch(function(e){
       setBusy(false);
       showErr(e.message);
@@ -399,7 +388,7 @@
     if(punchTitle) punchTitle.textContent=punchAction==='out'?'Check out':'Check in';
     if(btnConfirm) btnConfirm.textContent=punchAction==='out'?'Confirm check out':'Confirm check in';
     resetSelfie();
-    showErr(''); showOk('');
+    showErr('');
     if(gpsDetail) gpsDetail.textContent=isMobile
       ? 'Tap Allow location, then open the camera. Works in any browser.'
       : 'Allow location, then take a selfie.';
@@ -442,7 +431,7 @@
   async function punch(){
     if(busy) return;
     if(!navigator.onLine){ showErr('You are offline. Connect to the internet to punch.'); return; }
-    showErr(''); showOk('');
+    showErr('');
     setBusy(true, punchAction==='in'?'Getting GPS for check-in…':'Getting GPS for check-out…');
     try{
       if(!selfieBlob) throw new Error('Take a selfie with the camera before confirming.');
@@ -464,8 +453,7 @@
       });
       const data=await res.json().catch(function(){return {};});
       if(!res.ok || data.ok===false) throw new Error(data.error||'Could not save attendance.');
-      showOk(data.message||'Saved.');
-      setTimeout(function(){ window.location.reload(); }, 700);
+      window.location.reload();
     }catch(e){
       showErr(e.message||'Attendance failed.');
       setBusy(false);

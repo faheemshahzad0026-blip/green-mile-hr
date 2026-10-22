@@ -182,7 +182,6 @@ def leave():
     if request.method == "POST":
         try:
             _apply_leave_from_form(current_user)
-            flash("Leave request submitted. HR will review it.", "success")
             return redirect(url_for("employee.leave"))
         except ValueError as exc:
             db.session.rollback()
@@ -218,7 +217,6 @@ def announcements():
                     agency_id=current_user.agency_id,
                 )
                 db.session.commit()
-                flash("Announcement acknowledged.", "success")
             except ValueError as exc:
                 db.session.rollback()
                 flash(str(exc), "danger")
@@ -266,7 +264,6 @@ def attendance():
             qs = request.args.to_dict()
             if action == "apply_leave":
                 _apply_leave_from_form(current_user)
-                flash("Leave request submitted. HR will review it.", "success")
                 return redirect(url_for("employee.attendance", **qs))
             if action == "late_attendance":
                 request_late_attendance(
@@ -282,10 +279,6 @@ def attendance():
                     agency_id=current_user.agency_id,
                 )
                 db.session.commit()
-                flash(
-                    "Late attendance sent to HR for approval. Status stays Pending until HR decides.",
-                    "success",
-                )
                 return redirect(url_for("employee.attendance", **qs))
             if action in {"in", "out"}:
                 extras = _punch_extras_from_request()
@@ -310,7 +303,6 @@ def attendance():
                             "attendance": result.get("record"),
                         }
                     )
-                flash(msg, "success")
             else:
                 flash("Unknown action.", "danger")
         except ValueError as exc:
@@ -428,7 +420,6 @@ def documents():
                     agency_id=current_user.agency_id,
                 )
                 db.session.commit()
-                flash("Document removed.", "success")
             return redirect(url_for("employee.documents"))
 
         try:
@@ -470,7 +461,6 @@ def documents():
                     agency_id=current_user.agency_id,
                 )
                 db.session.commit()
-                flash("Document updated.", "success")
             else:
                 if not payload["number"] and not path:
                     raise ValueError("Enter a document number/title or upload a file.")
@@ -490,7 +480,6 @@ def documents():
                     agency_id=current_user.agency_id,
                 )
                 db.session.commit()
-                flash("Document saved.", "success")
         except ValueError as exc:
             db.session.rollback()
             flash(str(exc), "danger")
@@ -593,7 +582,6 @@ def download_apk_page():
                 agency_id=getattr(current_user, "agency_id", None),
             )
             db.session.commit()
-            flash("APK uploaded. Employees can download it from this page.", "success")
         except Exception as exc:
             db.session.rollback()
             flash(f"Could not save APK: {exc}", "danger")

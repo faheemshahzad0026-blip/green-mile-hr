@@ -19,6 +19,8 @@ from app.employee.services import (
     acknowledge_announcement,
     announcement_acks,
     current_shift,
+    dubai_now_time,
+    dubai_today,
     employee_agency,
     employee_match_ids,
     employee_notifications,
@@ -26,7 +28,9 @@ from app.employee.services import (
     leave_quotas,
     mark_notification_read,
     published_announcements,
+    punch_attendance,
     records_for_employee,
+    today_attendance_record,
 )
 from app.extensions import db
 from app.models import HrRecord
@@ -192,6 +196,102 @@ def shifts():
         shifts=rows,
         current=active,
     )
+
+
+@bp.route("/attendance", methods=["GET", "POST"])
+@login_required
+@employee_required
+def attendance():
+    """Employee check-in / check-out — same HrRecord kind admin hub reads."""
+    agency = employee_agency(current_user)
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        try:
+            result = punch_attendance(current_user, action)
+            write_audit(
+                f"emp_punch_{action}",
+                f"{current_user.employee_code} {result.get('record', {}).get('date')}",
+                agency_id=current_user.agency_id,
+            )
+            db.session.commit()
+            if action == "in":
+                flash(
+                    f"Checked in at {result['record'].get('timeIn')} (Dubai). HR can see this on Attendance.",
+                    "success",
+                )
+            else:
+                flash(
+                    f"Checked out at {result['record'].get('timeOut')} (Dubai). Saved for HR.",
+                    "success",
+                )
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc), "danger")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json":
+            att = today_attendance_record(current_user)
+            return jsonify(
+                {
+                    "ok": True,
+                    "date": dubai_today(),
+                    "attendance": (att.data if att else None),
+                }
+            )
+        return redirect(url_for("employee.attendance"))
+
+    att = today_attendance_record(current_user)
+    history = records_for_employee(current_user, "attendance")[:30]
+    d = (att.data if att else {}) or {}
+    open_punch = bool(d.get("timeIn") and not d.get("timeOut"))
+    finished_today = bool(
+        d.get("timeIn")
+        and d.get("timeOut")
+        and (d.get("date") or "") == dubai_today()
+    )
+    can_in = not open_punch and not finished_today
+    can_out = open_punch
+    return render_template(
+        "employee/attendance.html",
+        agency=agency,
+        employee=current_user,
+        attendance=att,
+        history=history,
+        can_in=can_in,
+        can_out=can_out,
+        today=dubai_today(),
+        now_time=dubai_now_time(),
+        shift=current_shift(current_user),
+    )
+
+
+@bp.route("/api/attendance", methods=["GET", "POST"])
+@login_required
+@employee_required
+def api_attendance():
+    """JSON punch API for portal / future APK (writes admin-visible attendance)."""
+    if request.method == "GET":
+        att = today_attendance_record(current_user)
+        d = (att.data if att else None) or None
+        return jsonify({"ok": True, "date": dubai_today(), "attendance": d})
+    payload = request.get_json(silent=True) or {}
+    action = (payload.get("action") or request.form.get("action") or "").strip().lower()
+    try:
+        result = punch_attendance(current_user, action)
+        write_audit(
+            f"emp_punch_{action}",
+            f"{current_user.employee_code}",
+            agency_id=current_user.agency_id,
+        )
+        db.session.commit()
+        return jsonify(
+            {
+                "ok": True,
+                "serverDate": dubai_today(),
+                "attendance": result.get("record"),
+            }
+        )
+    except ValueError as exc:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 400
 
 
 @bp.route("/documents", methods=["GET", "POST"])

@@ -47,6 +47,7 @@
                 type="button"
                 class="icon-lock {% if row.app_allowed %}allowed{% else %}blocked{% endif %}"
                 title="App access"
+                aria-label="App access"
                 data-app-open="{{ row.id }}"
                 data-name="{{ row.name }}"
                 data-code="{{ row.employee_code }}"
@@ -54,6 +55,19 @@
                 data-employment="{{ row.employment_status }}"
                 data-pin="{{ row.reveal_pin }}"
               >🔒</button>
+              <button
+                type="button"
+                class="icon-action"
+                title="Edit employee"
+                aria-label="Edit employee"
+                onclick='openEmployeeModal({{ row.id }}, {{ row.data|tojson }})'
+              >✎</button>
+              <form method="post" class="icon-action-form" onsubmit="return confirm('Delete this employee record?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" value="{{ row.id }}">
+                <button type="submit" class="icon-action danger" title="Delete employee" aria-label="Delete employee">🗑</button>
+              </form>
               <div class="header-menu action-menu">
                 <button type="button" class="secondary action-menu-btn" onclick="toggleActionMenu(this)">Actions ▾</button>
                 <div class="header-dropdown action-dropdown">
@@ -73,24 +87,23 @@
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='disciplinary', employee=row.emp_ref) }}"><strong>Disciplinary</strong></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='devices', employee=row.emp_ref) }}"><strong>Face &amp; fingerprint</strong></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='gratuity') }}"><strong>End of service</strong></a>
-                  <button type="button" class="header-dropdown-row" onclick='openEmployeeModal({{ row.id }}, {{ row.data|tojson }})'><strong>Edit employee</strong><span>Update profile details</span></button>
-                  <form method="post" onsubmit="return confirm('Delete this employee record?');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="id" value="{{ row.id }}">
-                    <button class="header-dropdown-row danger-link" type="submit"><strong>Delete</strong></button>
-                  </form>
                 </div>
               </div>
             </div>
             {% else %}
-            <div class="row-actions">
-              <button type="button" class="text-btn" onclick='openRecordModal({{ row.id }}, {{ row.data|tojson }})'>Edit</button>
-              <form method="post" onsubmit="return confirm('Delete this record?');" style="display:inline">
+            <div class="row-actions action-drop">
+              <button
+                type="button"
+                class="icon-action"
+                title="Edit"
+                aria-label="Edit"
+                onclick='openRecordModal({{ row.id }}, {{ row.data|tojson }})'
+              >✎</button>
+              <form method="post" class="icon-action-form" onsubmit="return confirm('Delete this record?');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" value="{{ row.id }}">
-                <button class="text-btn danger" type="submit">Delete</button>
+                <button type="submit" class="icon-action danger" title="Delete" aria-label="Delete">🗑</button>
               </form>
             </div>
             {% endif %}

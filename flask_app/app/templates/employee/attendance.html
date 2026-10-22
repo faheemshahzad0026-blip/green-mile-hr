@@ -1,0 +1,80 @@
+{% extends "layout_employee.html" %}
+{% block title %}Attendance · Green Mile HR{% endblock %}
+{% block page_title %}Attendance{% endblock %}
+{% block heading %}Attendance{% endblock %}
+{% block description %}Check in / out (Dubai time). Your punches appear on the HR Attendance panel automatically.{% endblock %}
+{% block content %}
+{% set d = (attendance.data if attendance else {}) or {} %}
+
+<div class="stats emp-quota-stats">
+  <div class="stat">
+    <div class="stat-top"><span>Today (Dubai)</span></div>
+    <div class="stat-value" style="font-size:22px">{{ today }}</div>
+    <div class="stat-sub">Local time {{ now_time }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span>Check-in</span></div>
+    <div class="stat-value" style="font-size:22px">{{ d.get('timeIn') or '—' }}</div>
+    <div class="stat-sub">{{ d.get('method') or 'Not punched' }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span>Check-out</span></div>
+    <div class="stat-value" style="font-size:22px">{{ d.get('timeOut') or '—' }}</div>
+    <div class="stat-sub">{% if d.get('timeOutDate') and d.get('timeOutDate') != d.get('date') %}Out date {{ d.get('timeOutDate') }}{% else %}{{ d.get('status') or '—' }}{% endif %}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span>Shift</span></div>
+    <div class="stat-value" style="font-size:18px">{% if shift %}{{ shift.get('name') or 'Assigned' }}{% else %}—{% endif %}</div>
+    <div class="stat-sub">{% if shift %}{{ shift.get('start') or '—' }} – {{ shift.get('end') or '—' }}{% else %}Ask HR to assign{% endif %}</div>
+  </div>
+</div>
+
+<section class="card" style="margin-bottom:22px">
+  <div class="card-head">
+    <div>
+      <h2>Punch</h2>
+      <p>Same records HR sees under Attendance · Daily.</p>
+    </div>
+  </div>
+  <div class="emp-quick-actions" style="padding:0 22px 22px">
+    <form method="post" style="display:inline" data-full-nav="1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="in">
+      <button class="primary" type="submit" {% if not can_in %}disabled{% endif %}>Check in</button>
+    </form>
+    <form method="post" style="display:inline" data-full-nav="1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="out">
+      <button class="secondary" type="submit" {% if not can_out %}disabled{% endif %}>Check out</button>
+    </form>
+  </div>
+</section>
+
+<section class="card table-card">
+  <div class="card-head">
+    <div><h2>Recent punches</h2><p>Visible to you and HR.</p></div>
+  </div>
+  {% if history %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>DATE</th><th>IN</th><th>OUT</th><th>METHOD</th><th>STATUS</th></tr>
+      </thead>
+      <tbody>
+        {% for r in history %}
+        <tr>
+          <td><strong>{{ r.get('date') or '—' }}</strong></td>
+          <td>{{ r.get('timeIn') or '—' }}</td>
+          <td>{{ r.get('timeOut') or '—' }}{% if r.get('timeOutDate') and r.get('timeOutDate') != r.get('date') %} <small>({{ r.get('timeOutDate') }})</small>{% endif %}</td>
+          <td>{{ r.get('method') or '—' }}</td>
+          <td><span class="badge">{{ r.get('status') or '—' }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><p>No punches yet. Use Check in above.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

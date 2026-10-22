@@ -67,10 +67,11 @@
       </div>
     </div>
     <div class="emp-quick-actions">
-      <a class="primary" href="{{ url_for('employee.leave') }}">Apply leave</a>
+      <a class="primary" href="{{ url_for('employee.attendance') }}">Attendance punch</a>
+      <a class="secondary" href="{{ url_for('employee.leave') }}">Apply leave</a>
       <a class="secondary" href="{{ url_for('employee.shifts') }}">My shifts</a>
       <a class="secondary" href="{{ url_for('employee.documents') }}">My documents</a>
-      <a class="secondary" href="{{ url_for('employee.download_apk_page') }}">Attendance app</a>
+      <a class="secondary" href="{{ url_for('employee.announcements') }}">Announcements</a>
     </div>
     {% if shift %}
     <div class="emp-mini-block">

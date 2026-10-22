@@ -20,6 +20,7 @@
     <div class="nav-scroll">
       <div class="nav-label">WORKSPACE</div>
       <a class="nav {% if _ep == 'employee.home' %}active{% endif %}" href="{{ url_for('employee.home') }}"><span>Dashboard</span></a>
+      <a class="nav {% if _ep == 'employee.attendance' %}active{% endif %}" href="{{ url_for('employee.attendance') }}"><span>Attendance</span></a>
       <a class="nav {% if _ep == 'employee.leave' %}active{% endif %}" href="{{ url_for('employee.leave') }}"><span>Leave</span></a>
       <a class="nav {% if _ep == 'employee.shifts' %}active{% endif %}" href="{{ url_for('employee.shifts') }}"><span>Shifts &amp; schedules</span></a>
       <a class="nav {% if _ep == 'employee.documents' %}active{% endif %}" href="{{ url_for('employee.documents') }}"><span>Documents</span></a>
@@ -97,7 +98,7 @@
 <script>
 (function(){
   var url={{ url_for('employee.api_notifications')|tojson }};
-  var lastCount=Number({{ (notify_items|length if notify_items is defined else 0)|tojson }})||0;
+  var lastCount=Number({{ (notify_count if notify_count is defined else 0)|tojson }})||0;
   var seenKey='gmEmpNotifySeen';
   function setBadge(n){
     var b=document.getElementById('empNotifyBadge');
@@ -145,17 +146,17 @@
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){
         if(!data||!data.ok) return;
-        var count=data.count||0;
-        setBadge(count);
+        var unread=typeof data.unread==='number'?data.unread:(data.count||0);
+        setBadge(unread);
         renderList(data.items||[]);
         var ids=(data.items||[]).map(function(i){return i.id;}).join('|');
         var prev=localStorage.getItem(seenKey)||'';
-        if(ids && ids!==prev && count>lastCount){
+        if(ids && ids!==prev && unread>lastCount){
           var first=(data.items&&data.items[0])||{};
           toast((first.title||'New HR update')+' — tap the bell to open');
         }
         if(ids) localStorage.setItem(seenKey, ids);
-        lastCount=count;
+        lastCount=unread;
       }).catch(function(){});
   }
   setInterval(poll, 45000);

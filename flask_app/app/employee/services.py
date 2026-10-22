@@ -21,6 +21,16 @@ def dubai_now_iso() -> str:
     return (datetime.now(timezone.utc) + timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def dubai_now_time() -> str:
+    return (datetime.now(timezone.utc) + timedelta(hours=4)).strftime("%H:%M")
+
+
+def dubai_yesterday() -> str:
+    return (datetime.now(timezone.utc) + timedelta(hours=4) - timedelta(days=1)).strftime(
+        "%Y-%m-%d"
+    )
+
+
 def employee_match_ids(emp: Employee) -> set[str]:
     """IDs/codes that may appear in HrRecord.data.employee for this login."""
     ids = {str(emp.id), str(emp.employee_code)}
@@ -305,6 +315,7 @@ def acknowledge_announcement(emp: Employee, announcement_id: int, revision: str)
         .order_by(HrRecord.id.desc())
         .all()
     )
+    already = False
     for e in existing:
         ed = e.data or {}
         if (
@@ -312,17 +323,24 @@ def acknowledge_announcement(emp: Employee, announcement_id: int, revision: str)
             and int(ed.get("announcementId") or 0) == announcement_id
             and ed.get("revision") == d.get("revision")
         ):
-            return  # already acked
-    receipt = {
-        "employee": str(emp.id),
-        "announcementId": announcement_id,
-        "title": d.get("title") or "",
-        "revision": d.get("revision") or "",
-        "date": dubai_now_iso(),
-        "status": "Acknowledged",
-        "naturalKey": key,
-    }
-    db.session.add(HrRecord(agency_id=emp.agency_id, kind="announcementReads", data=receipt))
+            already = True
+            break
+    if not already:
+        receipt = {
+            "employee": str(emp.id),
+            "announcementId": announcement_id,
+            "title": d.get("title") or "",
+            "revision": d.get("revision") or "",
+            "date": dubai_now_iso(),
+            "status": "Acknowledged",
+            "naturalKey": key,
+        }
+        db.session.add(HrRecord(agency_id=emp.agency_id, kind="announcementReads", data=receipt))
+    # Also clear matching bell notification
+    for n in employee_notifications(emp, limit=40):
+        if n.get("type") == "announcements" and int(n.get("recordId") or 0) == announcement_id:
+            mark_notification_read(emp, n.get("key") or "")
+            break
 
 
 def current_shift(emp: Employee) -> HrRecord | None:
@@ -340,6 +358,117 @@ def current_shift(emp: Employee) -> HrRecord | None:
             best_eff = eff
             best = r
     return best
+
+
+def open_attendance_record(emp: Employee) -> HrRecord | None:
+    """Open punch (checked in, not out) for yesterday or today — night-shift aware."""
+    today = dubai_today()
+    yesterday = dubai_yesterday()
+    match = employee_match_ids(emp)
+    rows = (
+        HrRecord.query.filter_by(agency_id=emp.agency_id, kind="attendance")
+        .order_by(HrRecord.id.desc())
+        .all()
+    )
+    for r in rows:
+        d = r.data or {}
+        if str(d.get("employee") or "") not in match:
+            continue
+        if (d.get("date") or "") not in {today, yesterday}:
+            continue
+        if (d.get("timeIn") or "") and not (d.get("timeOut") or ""):
+            return r
+    return None
+
+
+def today_attendance_record(emp: Employee) -> HrRecord | None:
+    """Closed or open attendance keyed to Dubai today (or open night shift)."""
+    open_rec = open_attendance_record(emp)
+    if open_rec:
+        return open_rec
+    today = dubai_today()
+    match = employee_match_ids(emp)
+    rows = records_for_employee(emp, "attendance")
+    for r in rows:
+        d = r.data or {}
+        if (d.get("date") or "") == today and str(d.get("employee") or "") in match:
+            return r
+    return None
+
+
+def punch_attendance(emp: Employee, action: str) -> dict:
+    """Employee check-in / check-out → HrRecord(kind=attendance) for admin hub."""
+    action = (action or "").strip().lower()
+    if action not in {"in", "out"}:
+        raise ValueError("Unknown punch action.")
+
+    today = dubai_today()
+    now_iso = dubai_now_iso()
+    time_hm = dubai_now_time()
+    current = open_attendance_record(emp)
+    old = dict(current.data or {}) if current else None
+
+    # Prefer today's closed/open record when not mid night-shift
+    if not current:
+        for r in records_for_employee(emp, "attendance"):
+            d = r.data or {}
+            if (d.get("date") or "") == today:
+                current = r
+                old = dict(d)
+                break
+
+    if action == "in":
+        if old and old.get("timeIn") and not old.get("timeOut") and (old.get("date") or "") in {
+            today,
+            dubai_yesterday(),
+        }:
+            raise ValueError("Already checked in. Check out first.")
+        if old and old.get("timeIn") and (old.get("date") or "") == today:
+            raise ValueError("Already checked in today.")
+        punch_date = today
+        data = {
+            "employee": str(emp.id),
+            "date": punch_date,
+            "timeIn": time_hm,
+            "timeOut": "",
+            "timeOutDate": "",
+            "method": "Mobile (GPS)",
+            "status": "Present",
+            "notes": "Employee portal check-in.",
+            "checkInAt": now_iso,
+        }
+        if current and (old or {}).get("date") == today and not (old or {}).get("timeIn"):
+            current.data = {**(old or {}), **data}
+            rec = current
+        else:
+            rec = HrRecord(agency_id=emp.agency_id, kind="attendance", data=data)
+            db.session.add(rec)
+        db.session.flush()
+        return {"ok": True, "action": "in", "record": rec.data, "id": rec.id}
+
+    # out
+    if not old or not old.get("timeIn"):
+        raise ValueError("Check in first.")
+    if old.get("timeOut"):
+        raise ValueError("Already checked out.")
+    data = {
+        **old,
+        "employee": str(emp.id),
+        "timeOut": time_hm,
+        "timeOutDate": today,
+        "method": old.get("method") or "Mobile (GPS)",
+        "status": old.get("status") or "Present",
+        "checkOutAt": now_iso,
+        "notes": old.get("notes") or "Employee portal check-out.",
+    }
+    if current:
+        current.data = data
+        rec = current
+    else:
+        rec = HrRecord(agency_id=emp.agency_id, kind="attendance", data=data)
+        db.session.add(rec)
+    db.session.flush()
+    return {"ok": True, "action": "out", "record": rec.data, "id": rec.id}
 
 
 def _digest(payload: str) -> str:
@@ -376,6 +505,7 @@ def employee_notifications(emp: Employee, limit: int = 20) -> list[dict]:
             HrRecord.kind.in_(
                 [
                     "announcements",
+                    "shifts",
                     "leave",
                     "certificateRequests",
                     "helpDesk",
@@ -408,6 +538,22 @@ def employee_notifications(emp: Employee, limit: int = 20) -> list[dict]:
                 "expiry": d.get("expiry") or "",
             }
             href = url_for("employee.announcements")
+        elif r.kind == "shifts":
+            if str(d.get("employee") or "") not in match:
+                continue
+            title = "Shift assigned"
+            message = (
+                f"{d.get('name') or 'Shift'} · {d.get('start') or '—'} – {d.get('end') or '—'}"
+                f" · Rest {d.get('restDay') or '—'}"
+            )
+            event = {
+                "name": d.get("name"),
+                "start": d.get("start"),
+                "end": d.get("end"),
+                "restDay": d.get("restDay"),
+                "effective": d.get("effective"),
+            }
+            href = url_for("employee.shifts")
         elif r.kind == "leave":
             if str(d.get("employee") or "") not in match:
                 continue

@@ -281,9 +281,13 @@ textarea{border:1px solid #dfe7d7;border-radius:6px;padding:10px 11px;background
 
 /* Employee listing action menu + lock */
 .action-drop{display:flex;align-items:center;gap:8px;justify-content:flex-end}
-.icon-lock{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:8px;background:#e4edda;border:1px solid #b9cbaa;text-decoration:none;font-size:15px;cursor:pointer;padding:0;color:inherit}
+.icon-lock,.icon-action{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:8px;background:#e4edda;border:1px solid #b9cbaa;text-decoration:none;font-size:15px;cursor:pointer;padding:0;color:#2a4f32;line-height:1;flex-shrink:0}
 .icon-lock.allowed{background:#dceccf;border-color:#8fbc6e}
 .icon-lock.blocked{background:#f6e9df;border-color:#d6ad9a}
+.icon-action:hover{background:#d5e6c8;border-color:#8fbc6e}
+.icon-action.danger{background:#f6e9df;border-color:#d6ad9a;color:#8a3f2e}
+.icon-action.danger:hover{background:#f0d8c8;border-color:#c48a72}
+.icon-action-form{display:inline-grid;margin:0;padding:0}
 .action-menu .action-dropdown{width:300px;max-height:min(70vh,480px);overflow:auto}
 .action-menu-btn{min-height:34px;padding:8px 12px;font-size:12px}
 .action-dropdown{right:0}

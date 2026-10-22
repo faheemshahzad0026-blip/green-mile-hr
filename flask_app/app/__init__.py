@@ -107,7 +107,7 @@ def create_app(config_class=Config):
             "app_name": "Green Mile HR",
             "now_label": now_label,
             "notify_items": notify_items,
-            "notify_count": len(notify_items),
+            "notify_count": sum(1 for n in notify_items if not n.get("read")),
             "announcement_count": announcement_count,
             "ui_period": get_period_state(),
         }

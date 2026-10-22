@@ -129,23 +129,14 @@ textarea{border:1px solid #dfe7d7;border-radius:6px;padding:10px 11px;background
 
 /* Bigger user avatar + cool menus */
 .header-user-trigger{
-  display:inline-flex;align-items:center;gap:8px;max-width:220px;
-  padding:4px 10px 4px 4px;border-radius:14px;border:1px solid #b9ccaa;
-  background:#e8f0df;color:#163f25;cursor:pointer;font:inherit;
+  display:inline-grid;place-items:center;padding:0;border:0;background:transparent;
+  color:#163f25;cursor:pointer;font:inherit;
 }
-.header-user-trigger:hover{background:#dce9cb}
-.header-user-name{
-  display:block;min-width:0;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:13px;font-weight:750;line-height:1.2;text-align:left;
-}
+.header-user-trigger:hover .header-user-btn{filter:brightness(0.97)}
 .header-user-btn.avatar,.header-user-trigger .header-user-btn{
   width:38px;height:38px;min-width:38px;border-radius:12px;font-size:13px;font-weight:800;
   background:linear-gradient(160deg,#dceccf,#b9d49a);color:#163f25;border:1px solid #9bbb77;
   box-shadow:0 4px 14px #173e2222;display:inline-grid;place-items:center;padding:0;
-}
-@media(max-width:760px){
-  .header-user-name{display:none}
-  .header-user-trigger{padding:0;border:0;background:transparent;max-width:none}
 }
 .notify-btn{
   width:46px;height:46px;min-width:46px;border-radius:14px;background:#e4edda;border:1px solid #b9ccaa;

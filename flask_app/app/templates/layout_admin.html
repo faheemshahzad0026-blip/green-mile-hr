@@ -156,8 +156,6 @@
         <div class="header-menu">
           <button type="button" class="header-user-trigger header-menu-btn" aria-haspopup="true" onclick="toggleHeaderMenu(this)" title="{{ current_user.username or current_user.display_name }}">
             <span class="avatar header-user-btn">{{ current_user.initials }}</span>
-            <span class="header-user-name">{{ current_user.username or current_user.display_name }}</span>
-            <span class="period-caret" aria-hidden="true">▾</span>
           </button>
           <div class="header-dropdown user-dropdown cool-dropdown">
             <div class="user-hero">

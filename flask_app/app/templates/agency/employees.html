@@ -25,10 +25,10 @@
           <td>{{ e.department or '—' }}</td>
           <td><span class="badge {% if not e.is_active %}red{% endif %}">{% if e.is_active %}Active{% else %}Off{% endif %}</span></td>
           <td>
-            <div class="row-actions">
-              <form method="post" action="{{ url_for('agency.employee_toggle', employee_id=e.id) }}">
+            <div class="row-actions action-drop">
+              <form method="post" action="{{ url_for('agency.employee_toggle', employee_id=e.id) }}" class="icon-action-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" title="Toggle">{% if e.is_active %}Disable{% else %}Enable{% endif %}</button>
+                <button type="submit" class="icon-action {% if e.is_active %}danger{% endif %}" title="{% if e.is_active %}Disable{% else %}Enable{% endif %}" aria-label="{% if e.is_active %}Disable{% else %}Enable{% endif %}">{% if e.is_active %}⏻{% else %}✔{% endif %}</button>
               </form>
             </div>
           </td>

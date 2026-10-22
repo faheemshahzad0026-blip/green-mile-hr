@@ -358,21 +358,7 @@ def employee_profile(record_id):
             return redirect(url_for("modules.employee_profile", record_id=record.id, _anchor="documents"))
 
         if action == "add_leave":
-            leave = {
-                "employee": str(auth_emp.id if auth_emp else record.id),
-                "type": (request.form.get("type") or "Annual").strip(),
-                "from": (request.form.get("from") or "").strip(),
-                "to": (request.form.get("to") or "").strip(),
-                "status": (request.form.get("status") or "Pending").strip(),
-                "reason": (request.form.get("reason") or "").strip(),
-            }
-            if not leave["from"] or not leave["to"]:
-                flash("Leave start and end dates are required.", "danger")
-            else:
-                db.session.add(HrRecord(agency_id=agency.id, kind="leave", data=leave))
-                write_audit("leave_create", f"employee {emp_key}", agency_id=agency.id)
-                db.session.commit()
-                flash("Leave request saved.", "success")
+            flash("Leave can only be applied by the employee from their portal.", "warning")
             return redirect(url_for("modules.employee_profile", record_id=record.id, _anchor="leave"))
 
         if action in {"reset_pin", "toggle_app", "set_pin"}:
@@ -566,6 +552,11 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
             write_audit("hr_delete", f"{kind}#{rid}", agency_id=agency.id)
             db.session.commit()
             flash("Record deleted.", "success")
+            return _redirect_after()
+
+        # Leave is employee-applied only — HR may approve / reject, not create
+        if kind == "leave" and action not in {"Approved", "Rejected", "delete"}:
+            flash("Leave can only be applied by the employee from their portal.", "warning")
             return _redirect_after()
 
         # Leave: quick approve / reject (✓ / ✕) — notifies employee via portal bell

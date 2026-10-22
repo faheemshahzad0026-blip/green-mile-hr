@@ -5,26 +5,14 @@
 {% block heading_actions %}
 {% if kind == 'employees' %}
 <button type="button" class="primary" onclick="openEmployeeModal()">+ Add employee</button>
-{% elif kind == 'leave' %}
-<button type="button" class="primary" onclick="openRecordModal()">+ Add leave</button>
-{% elif employee_filter or kind in ['shifts', 'announcements', 'departments', 'assets', 'recruitment', 'settings'] or mod.get('add_label') %}
+{% elif kind != 'leave' and (employee_filter or kind in ['shifts', 'announcements', 'departments', 'assets', 'recruitment', 'settings'] or mod.get('add_label')) %}
 <button type="button" class="primary" onclick="openRecordModal()">{{ mod.get('add_label') or ('+ Add ' ~ (mod.title|lower)) }}</button>
 {% endif %}
 {% endblock %}
 {% block content %}
 
 <section class="card table-card{% if kind == 'employees' %} employees-table{% endif %}">
-  {% if kind == 'leave' %}
-  <div class="table-toolbar" style="padding:14px 18px 0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
-    <p style="margin:0;font-size:13px;color:#5d7150">Approve with ✓ or reject with ✕. The employee gets a portal notification automatically.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      {% if employee_filter %}
-      <a class="secondary" href="{{ url_for('modules.module_list', kind='leave') }}">All leave requests</a>
-      {% endif %}
-      <a class="secondary" href="{{ url_for('modules.module_list', kind='employees') }}">← Employees</a>
-    </div>
-  </div>
-  {% elif employee_filter and kind != 'employees' %}
+  {% if kind != 'leave' and employee_filter and kind != 'employees' %}
   <div class="table-toolbar">
     <div class="toolbar-right" style="margin-left:auto">
       <a class="secondary" href="{{ url_for('modules.module_list', kind='employees') }}">← Employees</a>
@@ -32,9 +20,7 @@
     </div>
   </div>
   {% endif %}
-  {% if employee_filter and kind == 'leave' %}
-  <div class="alert info" style="margin:12px 18px">Leave history for this employee. Pending items appear first.</div>
-  {% elif employee_filter and kind != 'employees' %}
+  {% if kind != 'leave' and employee_filter and kind != 'employees' %}
   <div class="alert info" style="margin:0 18px 12px">Showing records for this employee only. Use Actions on Employees to open other modules.</div>
   {% endif %}
   {% if rows %}
@@ -83,7 +69,7 @@
                 <button type="submit" class="icon-action danger" title="Delete employee" aria-label="Delete employee">🗑</button>
               </form>
               <div class="header-menu action-menu">
-                <button type="button" class="secondary action-menu-btn" onclick="toggleActionMenu(this)">Actions ▾</button>
+                <button type="button" class="icon-action action-menu-btn" onclick="toggleActionMenu(this)" title="More actions" aria-label="More actions">⋮</button>
                 <div class="header-dropdown action-dropdown">
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id) }}"><strong>Open profile</strong><span>Full employee workspace</span></a>
                   <button type="button" class="header-dropdown-row" data-app-open="{{ row.id }}" data-name="{{ row.name }}" data-code="{{ row.employee_code }}" data-allowed="{{ '1' if row.app_allowed else '0' }}" data-employment="{{ row.employment_status }}" data-pin="{{ row.reveal_pin }}"><strong>App access</strong><span>Allow / block · send login</span></button>
@@ -125,13 +111,6 @@
               {% else %}
               <span class="badge {% if st == 'Approved' %}status-present{% elif st == 'Rejected' %}status-absent{% endif %}">{{ st or '—' }}</span>
               {% endif %}
-              <button
-                type="button"
-                class="icon-action"
-                title="Edit"
-                aria-label="Edit"
-                onclick='openRecordModal({{ row.id }}, {{ row.data|tojson }})'
-              >✎</button>
             </div>
             {% else %}
             <div class="row-actions action-drop">
@@ -164,6 +143,8 @@
     <p>
       {% if kind == 'employees' %}
         Create your first employee for {{ agency.company_name }} with <strong>+ Add employee</strong> above.
+      {% elif kind == 'leave' %}
+        When an employee applies for leave from their portal, it appears here for approval.
       {% elif employee_filter %}
         No records for this employee yet.
       {% elif kind == 'shifts' %}
@@ -175,14 +156,14 @@
       {% endif %}
     </p>
     {% if kind == 'employees' %}
-    {% elif employee_filter or kind in ['shifts', 'announcements'] or mod.get('add_label') %}
+    {% elif kind != 'leave' and (employee_filter or kind in ['shifts', 'announcements'] or mod.get('add_label')) %}
     <button type="button" class="text-btn" onclick="openRecordModal()">{{ mod.get('add_label') or '+ Add record' }}</button>
     {% endif %}
   </div>
   {% endif %}
 </section>
 
-{% if kind != 'employees' %}
+{% if kind != 'employees' and kind != 'leave' %}
 <div class="modal-backdrop record-form-backdrop" id="recordFormModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recordFormTitle">
     <form method="post" id="recordForm">
@@ -371,7 +352,7 @@
 })();
 </script>
 {% endif %}
-{% if kind != 'employees' %}
+{% if kind != 'employees' and kind != 'leave' %}
 <script>
 function openRecordModal(editId, data){
   const modal=document.getElementById('recordFormModal');

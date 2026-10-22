@@ -28,16 +28,16 @@
           <td>{{ d.get('source') or '—' }}</td>
           <td>
             {% if d.get('filePath') %}
-            <a class="text-btn" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank" rel="noopener">Open</a>
+            <a class="icon-action" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank" rel="noopener" title="Open file" aria-label="Open file">↗</a>
             {% else %}—{% endif %}
           </td>
           <td>
             {% if (d.get('source') or 'Employee') == 'Employee' %}
-            <form method="post" onsubmit="return confirm('Remove this document?');" style="display:inline">
+            <form method="post" class="icon-action-form" onsubmit="return confirm('Remove this document?');">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="id" value="{{ d.id }}">
-              <button class="text-btn danger" type="submit">Remove</button>
+              <button class="icon-action danger" type="submit" title="Remove" aria-label="Remove">🗑</button>
             </form>
             {% else %}
             <span class="soft-badge">HR</span>

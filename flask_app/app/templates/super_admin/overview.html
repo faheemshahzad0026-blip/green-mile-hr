@@ -18,7 +18,11 @@
           <td>{{ row.staff }}</td>
           <td>{{ row.employees }}</td>
           <td><span class="badge {% if not row.agency.is_active %}red{% endif %}">{% if row.agency.is_active %}Active{% else %}Inactive{% endif %}</span></td>
-          <td><a class="primary" style="padding:8px 12px;font-size:12px" href="{{ url_for('super_admin.agency_view', agency_id=row.agency.id) }}">Open workspace</a></td>
+          <td>
+            <div class="row-actions action-drop">
+              <a class="icon-action" href="{{ url_for('super_admin.agency_view', agency_id=row.agency.id) }}" title="Open workspace" aria-label="Open workspace">↗</a>
+            </div>
+          </td>
         </tr>
       {% else %}
         <tr><td colspan="6">No agencies yet.</td></tr>

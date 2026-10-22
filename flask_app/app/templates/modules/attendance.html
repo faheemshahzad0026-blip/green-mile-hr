@@ -38,9 +38,9 @@ Employee punches for {{ agency.company_name }} (view only). Selfie and GPS evide
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="tab" value="corrections">
               <input type="hidden" name="id" value="{{ row.id }}">
-              <input type="text" name="reviewNote" placeholder="Note (optional)" maxlength="500">
-              <button class="primary" type="submit" name="action" value="Approved">Approve</button>
-              <button class="secondary" type="submit" name="action" value="Rejected">Reject</button>
+              <input type="text" name="reviewNote" placeholder="Note (optional)" maxlength="500" title="Review note">
+              <button class="icon-action leave-approve" type="submit" name="action" value="Approved" title="Approve" aria-label="Approve">✓</button>
+              <button class="icon-action leave-reject" type="submit" name="action" value="Rejected" title="Reject" aria-label="Reject">✕</button>
             </form>
             {% else %}
             <span class="badge">{{ st or '—' }}</span>

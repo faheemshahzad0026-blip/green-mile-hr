@@ -133,13 +133,13 @@
           </td>
           <td class="timesheet-actions">
             {% if row.can_request_attendance %}
-            <button type="button" class="text-btn" data-late-date="{{ row.date }}">Request attendance</button>
+            <button type="button" class="icon-action" data-late-date="{{ row.date }}" title="Request late attendance" aria-label="Request late attendance">⏱</button>
             {% endif %}
             {% if row.can_apply_leave %}
-            <button type="button" class="text-btn" onclick="openLeaveModal('{{ row.date }}')">Apply leave</button>
+            <button type="button" class="icon-action" onclick="openLeaveModal('{{ row.date }}')" title="Apply leave" aria-label="Apply leave">🌴</button>
             {% endif %}
             {% if row.status_key == 'pending' %}
-            <span class="soft-badge">Awaiting HR</span>
+            <span class="soft-badge" title="Awaiting HR">⏳</span>
             {% elif not row.can_request_attendance and not row.can_apply_leave and row.status_key != 'pending' %}
             —
             {% endif %}

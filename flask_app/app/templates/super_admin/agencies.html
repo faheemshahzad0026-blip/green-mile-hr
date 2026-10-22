@@ -18,12 +18,12 @@
           <td>{{ a.slug }}</td>
           <td><span class="badge {% if not a.is_active %}red{% endif %}">{% if a.is_active %}Active{% else %}Inactive{% endif %}</span></td>
           <td>
-            <div class="row-actions" style="gap:10px;flex-wrap:wrap">
-              <a class="text-btn" href="{{ url_for('super_admin.agency_view', agency_id=a.id) }}">View data</a>
-              <a class="text-btn" href="{{ url_for('super_admin.agency_edit', agency_id=a.id) }}">Edit</a>
-              <form method="post" action="{{ url_for('super_admin.agency_toggle', agency_id=a.id) }}">
+            <div class="row-actions action-drop">
+              <a class="icon-action" href="{{ url_for('super_admin.agency_view', agency_id=a.id) }}" title="View data" aria-label="View data">↗</a>
+              <a class="icon-action" href="{{ url_for('super_admin.agency_edit', agency_id=a.id) }}" title="Edit" aria-label="Edit">✎</a>
+              <form method="post" action="{{ url_for('super_admin.agency_toggle', agency_id=a.id) }}" class="icon-action-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="text-btn" type="submit">{% if a.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+                <button class="icon-action {% if a.is_active %}danger{% endif %}" type="submit" title="{% if a.is_active %}Deactivate{% else %}Activate{% endif %}" aria-label="{% if a.is_active %}Deactivate{% else %}Activate{% endif %}">{% if a.is_active %}⏻{% else %}✔{% endif %}</button>
               </form>
             </div>
           </td>

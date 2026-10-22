@@ -5,7 +5,7 @@
 {% block heading_actions %}
 {% set emp_ref = (auth_emp.id if auth_emp else data.authEmployeeId or record.id) %}
 <div class="header-menu action-menu">
-  <button type="button" class="secondary action-menu-btn" onclick="toggleHeaderMenu(this)">Actions ▾</button>
+  <button type="button" class="icon-action action-menu-btn" onclick="toggleHeaderMenu(this)" title="More actions" aria-label="More actions">⋮</button>
   <div class="header-dropdown action-dropdown" style="width:300px;max-height:70vh;overflow:auto">
     <a class="header-dropdown-row" href="#app-access"><strong>App access</strong></a>
     <a class="header-dropdown-row" href="#leave"><strong>Leave</strong></a>
@@ -116,7 +116,7 @@
           <td><span class="badge">{{ d.get('status') or '—' }}</span></td>
           <td>
             {% if d.get('filePath') %}
-              <a class="text-btn" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank">Open</a>
+              <a class="icon-action" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank" title="Open file" aria-label="Open file">↗</a>
             {% else %}—{% endif %}
           </td>
         </tr>
@@ -130,11 +130,8 @@
 
 <section class="card" id="leave" style="margin-bottom:22px">
   <div class="card-head">
-    <div><h2>Leave</h2><p>Balance {{ leave_balance }} day(s) remaining · {{ used_leave }} used of {{ annual_leave }}</p></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <a class="secondary" href="{{ url_for('modules.module_list', kind='leave', employee=emp_key) }}">Full leave history</a>
-      <button type="button" class="primary" onclick="openProfileLeaveModal()">+ Add leave</button>
-    </div>
+    <div><h2>Leave</h2><p>Balance {{ leave_balance }} day(s) remaining · {{ used_leave }} used of {{ annual_leave }} · employees apply from their portal</p></div>
+    <a class="secondary" href="{{ url_for('modules.module_list', kind='leave', employee=emp_key) }}">Full leave history</a>
   </div>
   <div class="table-scroll">
     <table>
@@ -166,7 +163,7 @@
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="5">No leave requests for this employee. <button type="button" class="text-btn" onclick="openProfileLeaveModal()">Add leave</button></td></tr>
+        <tr><td colspan="5">No leave requests for this employee yet.</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -185,7 +182,11 @@
           <td>{{ r.get('category') or '—' }}</td>
           <td><strong>{{ r.get('subject') or '—' }}</strong></td>
           <td><span class="badge {% if r.get('status') in ['Pending','In progress'] %}amber{% endif %}">{{ r.get('status') }}</span></td>
-          <td><a class="text-btn" href="{{ url_for('modules.module_list', kind='helpDesk', edit=r.id) }}">Open</a></td>
+          <td>
+            <div class="row-actions action-drop">
+              <a class="icon-action" href="{{ url_for('modules.module_list', kind='helpDesk', employee=emp_key, focus=r.id) }}" title="Open request" aria-label="Open request">↗</a>
+            </div>
+          </td>
         </tr>
       {% else %}
         <tr><td colspan="5">No queries for this employee.</td></tr>
@@ -265,44 +266,6 @@
   </div>
 </div>
 
-<div class="modal-backdrop" id="profileLeaveModal" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileLeaveTitle">
-    <form method="post" id="profileLeaveForm">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="add_leave">
-      <div class="modal-head">
-        <div>
-          <div class="eyebrow">LEAVE</div>
-          <h2 id="profileLeaveTitle">Add leave</h2>
-          <p>{{ data.name or 'Employee' }} · balance {{ leave_balance }} day(s)</p>
-        </div>
-        <button type="button" class="icon" onclick="closeProfileLeaveModal()" aria-label="Close">✕</button>
-      </div>
-      <div class="form-body">
-        <div class="form-grid">
-          <label><span class="field-label">Leave type</span>
-            <select name="type">
-              <option value="">e.g. Annual</option>
-              {% for t in ['Annual','Sick','Casual','Maternity','Parental','Bereavement','Study','Unpaid','Other'] %}
-              <option>{{ t }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label><span class="field-label">From<em> *</em></span><input type="date" name="from" required></label>
-          <label><span class="field-label">To<em> *</em></span><input type="date" name="to" required></label>
-          <label><span class="field-label">Status</span>
-            <select name="status"><option value="">e.g. Pending</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
-          </label>
-          <label style="grid-column:1/-1"><span class="field-label">Reason</span><input name="reason" placeholder="e.g. Family visit"></label>
-        </div>
-      </div>
-      <div class="modal-foot">
-        <button type="button" class="secondary" onclick="closeProfileLeaveModal()">Cancel</button>
-        <button class="primary" type="submit">Save leave request</button>
-      </div>
-    </form>
-  </div>
-</div>
 {% endblock %}
 {% block scripts %}
 {{ super() }}
@@ -330,16 +293,13 @@ function openSetPinModal(){ _openModal('setPinModal','setPinForm','[name="pin"]'
 function closeSetPinModal(){ _closeModal('setPinModal'); }
 function openProfileDocModal(){ _openModal('profileDocModal','profileDocForm','[name="type"]'); }
 function closeProfileDocModal(){ _closeModal('profileDocModal'); }
-function openProfileLeaveModal(){ _openModal('profileLeaveModal','profileLeaveForm','[name="type"]'); }
-function closeProfileLeaveModal(){ _closeModal('profileLeaveModal'); }
 document.addEventListener('click',function(e){
   if(e.target.id==='setPinModal') closeSetPinModal();
   if(e.target.id==='profileDocModal') closeProfileDocModal();
-  if(e.target.id==='profileLeaveModal') closeProfileLeaveModal();
 });
 document.addEventListener('keydown',function(e){
   if(e.key!=='Escape') return;
-  closeSetPinModal(); closeProfileDocModal(); closeProfileLeaveModal();
+  closeSetPinModal(); closeProfileDocModal();
 });
 </script>
 {% endblock %}

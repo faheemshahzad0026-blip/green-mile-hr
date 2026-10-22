@@ -184,7 +184,7 @@ MODULES = {
     },
     "leave": {
         "title": "Leave requests",
-        "description": "Review requests, dates and approval decisions.",
+        "description": "Employees apply from their portal. Approve or reject pending requests here.",
         "columns": ["employee", "type", "from", "to", "status"],
         "fields": [
             employee,

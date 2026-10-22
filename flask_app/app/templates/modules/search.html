@@ -13,7 +13,11 @@
         <tr>
           <td><strong>{{ item.record.kind }}</strong></td>
           <td class="global-search-match">{{ item.record.data }}</td>
-          <td><a class="text-btn" href="{{ item.href }}">Open</a></td>
+          <td>
+            <div class="row-actions action-drop">
+              <a class="icon-action" href="{{ item.href }}" title="Open" aria-label="Open">↗</a>
+            </div>
+          </td>
         </tr>
       {% else %}
         <tr><td colspan="3">No matches for “{{ q }}”.</td></tr>

@@ -341,8 +341,10 @@ textarea{border:1px solid #dfe7d7;border-radius:6px;padding:10px 11px;background
 .icon-action.danger:hover{background:#f0d8c8;border-color:#c48a72}
 .icon-action-form{display:inline-grid;margin:0;padding:0}
 .action-menu .action-dropdown{width:300px;max-height:min(70vh,480px);overflow:auto}
-.action-menu-btn{min-height:34px;padding:8px 12px;font-size:12px}
+.action-menu-btn.icon-action{font-size:18px;font-weight:800;letter-spacing:0}
 .action-dropdown{right:0}
+a.icon-action{color:inherit}
+.correction-review .icon-action{flex-shrink:0}
 .action-dropdown .header-dropdown-row{display:flex;flex-direction:column;gap:2px;width:100%;border:0;background:transparent;text-align:left;cursor:pointer;font:inherit;color:inherit;padding:12px 16px}
 .action-dropdown form .header-dropdown-row{width:100%}
 .table-card.employees-table,.table-card:has(.action-drop){overflow:visible}

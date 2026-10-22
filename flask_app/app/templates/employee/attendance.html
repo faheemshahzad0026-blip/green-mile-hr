@@ -2,7 +2,10 @@
 {% block title %}Attendance · Green Mile HR{% endblock %}
 {% block page_title %}Attendance{% endblock %}
 {% block heading %}Attendance{% endblock %}
-{% block description %}Check in / out with selfie and GPS (Dubai 12-hour time). HR sees your punch, photo and location.{% endblock %}
+{% block description %}Punch with selfie + GPS, then review your timesheet. Request late attendance or apply leave from Actions.{% endblock %}
+{% block heading_actions %}
+<button type="button" class="secondary" onclick="openLeaveModal()">+ Apply leave</button>
+{% endblock %}
 {% block content %}
 {% set d = (attendance.data if attendance else {}) or {} %}
 {% set tin = format_time_12h(d.get('timeIn')) if d.get('timeIn') else '—' %}
@@ -49,9 +52,9 @@
       <span class="gps-pin" aria-hidden="true">◎</span>
       <div>
         <strong id="gpsTitle">Location required</strong>
-        <span id="gpsDetail">Allow GPS so HR can see where you punched from.</span>
+        <span id="gpsDetail">On phone or tablet, tap <b>Allow location</b> when your browser asks. Works in any browser. Attendance will not save if Location is off.</span>
       </div>
-      <button type="button" class="text-btn" id="gpsRefresh">Get GPS</button>
+      <button type="button" class="secondary" id="gpsRefresh">Allow location</button>
     </div>
 
     <div class="selfie-panel">
@@ -81,49 +84,99 @@
 
   <section class="card table-card emp-att-history">
     <div class="card-head">
-      <div><h2>Recent punches</h2><p>Times in 12-hour Dubai format · visible to HR with selfie &amp; GPS.</p></div>
+      <div>
+        <h2>Timesheet</h2>
+        <p>{{ period.label }} · Dubai calendar</p>
+      </div>
     </div>
-    {% if history %}
+    <form class="timesheet-filter" method="get" action="{{ url_for('employee.attendance') }}">
+      <label>
+        <span>Period</span>
+        <select name="period" onchange="this.form.submit()">
+          {% for key, label in period.options %}
+          <option value="{{ key }}" {% if period.key == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if period.key == 'custom' %}
+      <label><span>From</span><input type="date" name="from" value="{{ period.custom_from }}"></label>
+      <label><span>To</span><input type="date" name="to" value="{{ period.custom_to }}"></label>
+      <button class="secondary" type="submit">Apply</button>
+      {% endif %}
+    </form>
+    {% if timesheet %}
     <div class="table-scroll">
       <table>
         <thead>
-          <tr><th>DATE</th><th>IN</th><th>OUT</th><th>GPS</th><th>SELFIE</th><th>STATUS</th></tr>
+          <tr><th>DATE</th><th>DAY</th><th>TIME</th><th>STATUS</th><th>ACTIONS</th></tr>
         </thead>
         <tbody>
-          {% for r in history %}
-          <tr>
-            <td><strong>{{ r.get('date') or '—' }}</strong></td>
-            <td>{{ format_time_12h(r.get('timeIn')) }}</td>
+          {% for row in timesheet %}
+          <tr class="{% if row.is_today %}timesheet-today{% endif %}">
+            <td><strong>{{ row.date }}</strong></td>
+            <td>{{ row.day }}</td>
+            <td>{{ row.time }}</td>
             <td>
-              {{ format_time_12h(r.get('timeOut')) }}
-              {% if r.get('timeOutDate') and r.get('timeOutDate') != r.get('date') %}
-              <small>({{ r.get('timeOutDate') }})</small>
+              <span class="badge status-{{ row.status_key }}">{{ row.status }}</span>
+              {% if row.leave_type %}<small> · {{ row.leave_type }}</small>{% endif %}
+            </td>
+            <td class="timesheet-actions">
+              {% if row.can_request_attendance %}
+              <button type="button" class="text-btn" data-late-date="{{ row.date }}">Request attendance</button>
+              {% endif %}
+              {% if row.can_apply_leave %}
+              <button type="button" class="text-btn" onclick="openLeaveModal('{{ row.date }}')">Apply leave</button>
+              {% endif %}
+              {% if row.status_key == 'pending' %}
+              <span class="soft-badge">Awaiting HR</span>
+              {% elif row.status_key in ['present', 'on_leave', 'future'] and not row.can_request_attendance and not row.can_apply_leave %}
+              —
               {% endif %}
             </td>
-            <td>
-              {% set loc = r.get('checkInLocation') or r.get('checkOutLocation') %}
-              {% if loc and loc.latitude is defined %}
-              <a class="text-btn" href="https://maps.google.com/?q={{ loc.latitude }},{{ loc.longitude }}" target="_blank" rel="noopener">Map</a>
-              {% else %}—{% endif %}
-            </td>
-            <td>
-              {% if r.get('checkInSelfie') or r.get('checkOutSelfie') %}
-                {% if r.get('checkInSelfie') %}<a class="text-btn" href="{{ url_for('static', filename=r.get('checkInSelfie')) }}" target="_blank" rel="noopener">In</a>{% endif %}
-                {% if r.get('checkInSelfie') and r.get('checkOutSelfie') %} · {% endif %}
-                {% if r.get('checkOutSelfie') %}<a class="text-btn" href="{{ url_for('static', filename=r.get('checkOutSelfie')) }}" target="_blank" rel="noopener">Out</a>{% endif %}
-              {% else %}—{% endif %}
-            </td>
-            <td><span class="badge">{{ r.get('status') or '—' }}</span></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% else %}
-    <div class="empty"><p>No punches yet. Take a selfie, allow GPS, then Check in.</p></div>
+    <div class="empty"><p>No days in this period.</p></div>
     {% endif %}
   </section>
 </div>
+
+{# Late attendance request #}
+<div class="modal-backdrop" id="lateAttModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lateAttTitle">
+    <form method="post" id="lateAttForm" data-full-nav="1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="late_attendance">
+      <input type="hidden" name="date" id="lateDate" value="">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">ATTENDANCE</div>
+          <h2 id="lateAttTitle">Request late attendance</h2>
+          <p>Forgot to punch? HR must approve. Approved → Present · Rejected → Absent.</p>
+        </div>
+        <button type="button" class="icon" onclick="closeLateModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <label><span class="field-label">Date</span><input type="text" id="lateDateLabel" readonly></label>
+          <label><span class="field-label">Check-in time<em> *</em></span><input type="time" name="timeIn" required></label>
+          <label><span class="field-label">Check-out time</span><input type="time" name="timeOut"></label>
+          <label style="grid-column:1/-1"><span class="field-label">Reason<em> *</em></span><textarea name="reason" rows="3" maxlength="2000" required placeholder="e.g. Forgot to check in · network issue"></textarea></label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="closeLateModal()">Cancel</button>
+        <button class="primary" type="submit">Send to HR</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% set leave_form_action = url_for('employee.attendance') %}
+{% include "partials/leave_apply_modal.html" %}
 {% endblock %}
 
 {% block scripts %}
@@ -148,6 +201,8 @@
   const btnIn=document.getElementById('btnCheckIn');
   const btnOut=document.getElementById('btnCheckOut');
   let stream=null, point=null, selfieBlob=null, busy=false;
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||isIOS;
 
   function setOnline(){
     const on=navigator.onLine;
@@ -186,16 +241,34 @@
     });
   }
 
+  function markGpsFailed(msg){
+    point=null;
+    if(gpsTitle) gpsTitle.textContent='Location off / unavailable';
+    if(gpsDetail) gpsDetail.textContent=msg||'Turn on device Location (GPS), allow this site, then tap Get GPS.';
+  }
+
   function locate(){
     return new Promise(function(resolve, reject){
+      if(!window.isSecureContext && location.protocol!=='https:' && location.hostname!=='localhost' && location.hostname!=='127.0.0.1'){
+        markGpsFailed('Location needs HTTPS (or localhost).');
+        reject(new Error('Attendance failed: open this site over HTTPS so GPS can run.'));
+        return;
+      }
       if(!navigator.geolocation){
-        reject(new Error('Location is not supported on this device.'));
+        markGpsFailed('This browser cannot read GPS.');
+        reject(new Error('Attendance failed: location is not supported on this device.'));
         return;
       }
       navigator.geolocation.getCurrentPosition(function(p){
+        const lat=p.coords.latitude, lng=p.coords.longitude;
+        if(!Number.isFinite(lat) || !Number.isFinite(lng) || (lat===0 && lng===0)){
+          markGpsFailed('No real GPS fix.');
+          reject(new Error('Attendance failed: device location is off or returned no GPS fix. Turn Location on and retry.'));
+          return;
+        }
         point={
-          latitude:p.coords.latitude,
-          longitude:p.coords.longitude,
+          latitude:lat,
+          longitude:lng,
           accuracy:p.coords.accuracy,
           timestamp:p.timestamp
         };
@@ -203,19 +276,36 @@
         if(gpsDetail) gpsDetail.textContent='Accuracy ±'+Math.round(p.coords.accuracy||0)+' m · HR can open this on a map';
         resolve(point);
       }, function(e){
-        reject(new Error(e.code===1
-          ? 'Location permission denied. Enable location for this site.'
-          : 'Could not get GPS. Move near a window and retry.'));
+        var msg='Attendance failed: turn on device Location (GPS), allow this site, then try again.';
+        if(e && e.code===1) msg='Attendance failed: location permission denied. Enable Location for this site in browser / phone settings.';
+        else if(e && e.code===2) msg='Attendance failed: device location is turned off or GPS is unavailable. Turn Location on and retry.';
+        else if(e && e.code===3) msg='Attendance failed: GPS timed out. Turn Location on, move near a window, then retry.';
+        markGpsFailed(msg);
+        reject(new Error(msg));
       }, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
     });
   }
 
-  document.getElementById('gpsRefresh')?.addEventListener('click', function(){
+  function requestLocationPermission(){
     showErr('');
-    setBusy(true, 'Getting GPS…');
-    locate().then(function(){ setBusy(false); }).catch(function(e){
-      setBusy(false); showErr(e.message);
+    if(gpsTitle) gpsTitle.textContent='Waiting for permission…';
+    if(gpsDetail) gpsDetail.textContent=isIOS
+      ? 'iPhone / iPad: choose Allow when your browser asks for Location (Safari, Chrome, or any browser).'
+      : 'Allow Location when your phone asks, then wait for GPS.';
+    setBusy(true, 'Asking for location…');
+    return locate().then(function(){
+      setBusy(false);
+      showErr('');
+      showOk('Location allowed. You can check in / out.');
+      setTimeout(function(){ if(okEl) okEl.hidden=true; }, 2500);
+    }).catch(function(e){
+      setBusy(false);
+      showErr(e.message);
     });
+  }
+
+  document.getElementById('gpsRefresh')?.addEventListener('click', function(){
+    requestLocationPermission();
   });
 
   async function startCamera(){
@@ -277,7 +367,11 @@
     setBusy(true, action==='in'?'Getting GPS for check-in…':'Getting GPS for check-out…');
     try{
       if(!selfieBlob) throw new Error('Take a selfie before punching.');
+      // Fresh GPS on every punch (iOS only shows the system prompt after a tap)
       const location=await locate();
+      if(!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)){
+        throw new Error('Attendance failed: device location is off. Tap Allow location, turn Location on, then try again.');
+      }
       setBusy(true, 'Saving punch…');
       const fd=new FormData();
       fd.append('csrf_token', csrf);
@@ -295,7 +389,7 @@
       showOk(data.message||'Saved.');
       setTimeout(function(){ window.location.reload(); }, 700);
     }catch(e){
-      showErr(e.message||'Punch failed.');
+      showErr(e.message||'Attendance failed.');
       setBusy(false);
     }
   }
@@ -303,8 +397,39 @@
   btnIn?.addEventListener('click', function(){ punch('in'); });
   btnOut?.addEventListener('click', function(){ punch('out'); });
 
-  // Pre-fetch GPS quietly
-  locate().catch(function(){});
+  // Mobile: do not auto-request on load (browsers block that). Use Allow location button + punch tap.
+  // Android APK requests OS Location permission when the app opens.
+  if(!isIOS && !isMobile){
+    locate().catch(function(){});
+  } else if(gpsDetail){
+    gpsDetail.textContent=isIOS
+      ? 'iPhone / iPad: tap Allow location in any browser (Safari, Chrome, etc.), then choose Allow.'
+      : 'Tap Allow location so your browser or app can show the Location permission.';
+  }
+
+  window.openLateModal=function(date){
+    const modal=document.getElementById('lateAttModal');
+    const form=document.getElementById('lateAttForm');
+    if(!modal||!form) return;
+    form.reset();
+    document.getElementById('lateDate').value=date;
+    document.getElementById('lateDateLabel').value=date;
+    modal.hidden=false;
+    document.body.style.overflow='hidden';
+  };
+  window.closeLateModal=function(){
+    const modal=document.getElementById('lateAttModal');
+    if(!modal) return;
+    modal.hidden=true;
+    document.body.style.overflow='';
+  };
+  document.querySelectorAll('[data-late-date]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openLateModal(btn.getAttribute('data-late-date')); });
+  });
+  document.addEventListener('click',function(e){ if(e.target.id==='lateAttModal') closeLateModal(); });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape' && document.getElementById('lateAttModal') && !document.getElementById('lateAttModal').hidden) closeLateModal();
+  });
 })();
 </script>
 {% endblock %}

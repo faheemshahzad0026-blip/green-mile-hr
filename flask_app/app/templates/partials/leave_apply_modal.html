@@ -1,0 +1,138 @@
+{# Shared leave apply modal — include on leave + attendance pages.
+   Expects: quotas, leave_types, csrf_token(), optional leave_form_action #}
+{% set leave_post = leave_form_action or url_for('employee.leave') %}
+<div class="modal-backdrop" id="leaveFormModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="leaveFormTitle">
+    <form method="post" action="{{ leave_post }}" id="leaveForm" data-full-nav="1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="apply_leave">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">LEAVE</div>
+          <h2 id="leaveFormTitle">Apply for leave</h2>
+          <p>HR reviews every request. Overlaps with pending/approved leave are blocked.</p>
+        </div>
+        <button type="button" class="icon" onclick="closeLeaveModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="leave-quota-strip">
+          <div><span>Annual left</span><strong>{{ quotas.annual_remaining }}</strong><small>of {{ quotas.annual_quota }}</small></div>
+          <div><span>Sick left</span><strong>{{ quotas.sick_remaining }}</strong><small>of {{ quotas.sick_quota }}</small></div>
+          <div><span>Total left</span><strong>{{ quotas.total_remaining or (quotas.annual_remaining + quotas.sick_remaining) }}</strong><small>of {{ quotas.total_quota or (quotas.annual_quota + quotas.sick_quota) }}</small></div>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span class="field-label">Leave type<em> *</em></span>
+            <select name="type" id="leaveType" required>
+              <option value="Annual" selected>Annual</option>
+              <option value="Sick">Sick</option>
+              {% for t in leave_types %}
+                {% if t not in ['Annual', 'Sick'] %}
+                <option value="{{ t }}">{{ t }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span class="field-label">Day length<em> *</em></span>
+            <select name="dayPart" id="leaveDayPart" required>
+              <option value="Full" selected>Full day</option>
+              <option value="Half">Half day</option>
+            </select>
+          </label>
+          <label>
+            <span class="field-label">From<em> *</em></span>
+            <input type="date" name="from" id="leaveFrom" required>
+          </label>
+          <label>
+            <span class="field-label">To<em> *</em></span>
+            <input type="date" name="to" id="leaveTo" required>
+          </label>
+          <div class="leave-days-box" style="grid-column:1/-1">
+            <span class="field-label">Total days</span>
+            <strong id="leaveDaysTotal">1</strong>
+            <small id="leaveDaysHint">Full day count between From and To</small>
+          </div>
+          <label style="grid-column:1/-1">
+            <span class="field-label">Reason<em> *</em></span>
+            <textarea name="reason" rows="3" maxlength="2000" required placeholder="e.g. Family travel / medical appointment"></textarea>
+          </label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="closeLeaveModal()">Cancel</button>
+        <button class="primary" type="submit">Submit leave request</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function(){
+  function daysBetween(a,b){
+    try{
+      const d0=new Date(a+'T00:00:00'), d1=new Date(b+'T00:00:00');
+      if(isNaN(d0)||isNaN(d1)||d1<d0) return 0;
+      return Math.round((d1-d0)/86400000)+1;
+    }catch(e){ return 0; }
+  }
+  function refreshLeaveDays(){
+    const part=document.getElementById('leaveDayPart');
+    const frm=document.getElementById('leaveFrom');
+    const to=document.getElementById('leaveTo');
+    const total=document.getElementById('leaveDaysTotal');
+    const hint=document.getElementById('leaveDaysHint');
+    if(!part||!frm||!to||!total) return;
+    if(part.value==='Half'){
+      if(frm.value) to.value=frm.value;
+      to.readOnly=true;
+      total.textContent='0.5';
+      if(hint) hint.textContent='Half day · uses 0.5 of your quota';
+    }else{
+      to.readOnly=false;
+      const n=daysBetween(frm.value, to.value);
+      total.textContent=String(n||'—');
+      if(hint) hint.textContent='Full day count between From and To';
+    }
+  }
+  window.openLeaveModal=function(prefillDate){
+    const modal=document.getElementById('leaveFormModal');
+    const form=document.getElementById('leaveForm');
+    if(!modal||!form) return;
+    form.reset();
+    const type=form.querySelector('[name="type"]');
+    if(type) type.value='Annual';
+    const part=document.getElementById('leaveDayPart');
+    if(part) part.value='Full';
+    if(prefillDate){
+      const frm=document.getElementById('leaveFrom');
+      const to=document.getElementById('leaveTo');
+      if(frm) frm.value=prefillDate;
+      if(to) to.value=prefillDate;
+    }
+    refreshLeaveDays();
+    modal.hidden=false;
+    document.body.style.overflow='hidden';
+    if(window.applyPlaceholders) window.applyPlaceholders(modal);
+  };
+  window.closeLeaveModal=function(){
+    const modal=document.getElementById('leaveFormModal');
+    if(!modal) return;
+    modal.hidden=true;
+    document.body.style.overflow='';
+  };
+  document.getElementById('leaveDayPart')?.addEventListener('change', refreshLeaveDays);
+  document.getElementById('leaveFrom')?.addEventListener('change', function(){
+    const part=document.getElementById('leaveDayPart');
+    const to=document.getElementById('leaveTo');
+    if(part && part.value==='Half' && to) to.value=this.value;
+    refreshLeaveDays();
+  });
+  document.getElementById('leaveTo')?.addEventListener('change', refreshLeaveDays);
+  document.addEventListener('click',function(e){ if(e.target.id==='leaveFormModal') closeLeaveModal(); });
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape') return;
+    if(document.getElementById('lateAttModal') && !document.getElementById('lateAttModal').hidden) return;
+    closeLeaveModal();
+  });
+})();
+</script>

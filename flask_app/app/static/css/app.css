@@ -657,3 +657,24 @@ html.gm-loading{cursor:progress}
 .selfie-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
 .emp-att-history .table-scroll{max-height:520px}
 @media(max-width:1000px){.emp-att-layout{grid-template-columns:1fr}}
+
+.timesheet-filter{display:flex;flex-wrap:wrap;gap:12px;align-items:end;padding:0 18px 14px}
+.timesheet-filter label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:650;color:#3f5d3a}
+.timesheet-filter select,.timesheet-filter input[type=date]{min-height:40px;padding:8px 10px;border:1.5px solid #789b60;border-radius:8px;background:#f4f8ef}
+.timesheet-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.timesheet-today{background:#eef6e4}
+.badge.status-present{background:#d7ebc4;color:#1f4d28}
+.badge.status-absent{background:#f3d7d2;color:#8a3a30}
+.badge.status-on_leave{background:#d5e7f5;color:#1f4d6e}
+.badge.status-pending{background:#f5e6c8;color:#7a5a18}
+.leave-quota-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.leave-quota-strip>div{background:#e8f2df;border:1px solid #b9ccaa;border-radius:10px;padding:12px}
+.leave-quota-strip span{display:block;font-size:11px;color:#5d7150}
+.leave-quota-strip strong{display:block;font-size:22px;color:#1f4d28;margin-top:4px}
+.leave-quota-strip small{font-size:11px;color:#617266}
+.leave-days-box{background:#eef5e6;border:1px dashed #9bbb77;border-radius:10px;padding:12px 14px}
+.leave-days-box strong{display:block;font-size:28px;color:#1f4d28;margin-top:4px}
+.correction-review{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.correction-review input[type=text]{min-height:36px;padding:6px 8px;border:1px solid #b9ccaa;border-radius:8px;min-width:120px}
+.correction-review button{min-height:36px;padding:6px 10px;font-size:12px}
+@media(max-width:760px){.leave-quota-strip{grid-template-columns:1fr}}

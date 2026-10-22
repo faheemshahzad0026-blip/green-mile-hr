@@ -1,7 +1,13 @@
 {% extends "layout_admin.html" %}
 {% block title %}Attendance · Green Mile HR{% endblock %}
 {% block heading %}Attendance{% endblock %}
-{% block description %}View all attendance punched by employees for {{ agency.company_name }}. HR cannot add or edit punches here.{% endblock %}
+{% block description %}
+{% if tab == 'corrections' %}
+Review late attendance requests. Approve → Present · Reject → Absent.
+{% else %}
+Employee punches for {{ agency.company_name }} (view only). Selfie and GPS evidence are linked when available.
+{% endif %}
+{% endblock %}
 {% block content %}
 <nav class="attendance-tabs">
   <a class="{% if tab == 'daily' %}active{% endif %}" href="{{ url_for('modules.attendance_hub', tab='daily') }}">Daily attendance</a>
@@ -15,6 +21,7 @@
       <thead>
         <tr>
           {% for col in mod.columns %}<th>{{ col|upper }}</th>{% endfor %}
+          {% if tab == 'corrections' %}<th>REVIEW</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -23,17 +30,34 @@
           {% for cell in row.cells %}
           <td>{% if loop.first %}<strong>{{ cell }}</strong>{% else %}{{ cell }}{% endif %}</td>
           {% endfor %}
+          {% if tab == 'corrections' %}
+          <td>
+            {% set st = (row.data or {}).get('status') or '' %}
+            {% if st == 'Pending' %}
+            <form method="post" class="correction-review" data-full-nav="1">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="tab" value="corrections">
+              <input type="hidden" name="id" value="{{ row.id }}">
+              <input type="text" name="reviewNote" placeholder="Note (optional)" maxlength="500">
+              <button class="primary" type="submit" name="action" value="Approved">Approve</button>
+              <button class="secondary" type="submit" name="action" value="Rejected">Reject</button>
+            </form>
+            {% else %}
+            <span class="badge">{{ st or '—' }}</span>
+            {% endif %}
+          </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <div class="table-bottom"><span>{{ rows|length }} record(s) · view only</span></div>
+  <div class="table-bottom"><span>{{ rows|length }} record(s){% if tab != 'corrections' %} · punches view only{% endif %}</span></div>
   {% else %}
   <div class="empty">
     <div class="empty-icon">◷</div>
     <h3>No {% if tab == 'corrections' %}corrections{% else %}attendance{% endif %} yet</h3>
-    <p>When an employee checks in from their portal (Attendance) or app, punches show here automatically.</p>
+    <p>{% if tab == 'corrections' %}When an employee requests late attendance from their timesheet, it appears here for approval.{% else %}When an employee checks in from their portal, punches show here automatically.{% endif %}</p>
   </div>
   {% endif %}
 </section>

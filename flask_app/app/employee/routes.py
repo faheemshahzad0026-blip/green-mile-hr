@@ -20,19 +20,23 @@ from app.employee.services import (
     acknowledge_announcement,
     announcement_acks,
     build_employee_dashboard,
+    build_employee_timesheet,
     current_shift,
     dubai_now_time,
     dubai_today,
     employee_agency,
     employee_match_ids,
     employee_notifications,
+    employee_period_from_args,
     format_time_12h,
+    leave_day_count,
     leave_overlap_exists,
     leave_quotas,
     mark_notification_read,
     published_announcements,
     punch_attendance,
     records_for_employee,
+    request_late_attendance,
     today_attendance_record,
 )
 from app.extensions import db
@@ -47,11 +51,19 @@ def _punch_extras_from_request():
     if raw:
         try:
             location = json.loads(raw)
-        except Exception:
-            location = None
+        except Exception as exc:
+            raise ValueError(
+                "Attendance failed: device location is off or invalid. "
+                "Turn on Location / GPS and try again."
+            ) from exc
     payload = request.get_json(silent=True) or {}
     if location is None and isinstance(payload.get("location"), dict):
         location = payload.get("location")
+    if not location:
+        raise ValueError(
+            "Attendance failed: device location is off or was not sent. "
+            "Turn on Location / GPS, allow this site, then punch again."
+        )
     selfie_path = None
     selfie_file = request.files.get("selfie")
     if selfie_file and selfie_file.filename:
@@ -101,6 +113,61 @@ def home():
     )
 
 
+def _apply_leave_from_form(emp):
+    """Shared leave apply used by /leave and attendance timesheet."""
+    leave_type = (request.form.get("type") or "Annual").strip()
+    if leave_type not in LEAVE_TYPES:
+        leave_type = "Annual"
+    day_part = (request.form.get("dayPart") or "Full").strip()
+    if day_part not in {"Full", "Half"}:
+        day_part = "Full"
+    frm = (request.form.get("from") or "").strip()
+    to = (request.form.get("to") or "").strip()
+    reason = (request.form.get("reason") or "").strip()
+    if day_part == "Half":
+        to = frm
+    if not frm or not to:
+        raise ValueError("Start and end dates are required.")
+    if not reason or len(reason) > 2000:
+        raise ValueError("Please enter a reason (max 2000 characters).")
+    try:
+        d0 = datetime.strptime(frm, "%Y-%m-%d")
+        d1 = datetime.strptime(to, "%Y-%m-%d")
+        if d1 < d0:
+            raise ValueError("End date must be on or after start date.")
+        if (d1 - d0).days + 1 > 366:
+            raise ValueError("Leave cannot exceed 366 days.")
+        if day_part == "Half" and frm != to:
+            raise ValueError("Half day leave must be a single date.")
+    except ValueError as exc:
+        if "does not match" in str(exc) or "unconverted" in str(exc):
+            raise ValueError("Use valid dates (YYYY-MM-DD).") from exc
+        raise
+    if leave_overlap_exists(emp, frm, to):
+        raise ValueError("This overlaps an existing pending or approved leave request.")
+    row = {
+        "employee": str(emp.id),
+        "type": leave_type,
+        "from": frm,
+        "to": to,
+        "dayPart": day_part,
+        "days": leave_day_count(
+            {"from": frm, "to": to, "dayPart": day_part}
+        ),
+        "status": "Pending",
+        "reason": reason,
+        "source": "Employee app",
+    }
+    db.session.add(HrRecord(agency_id=emp.agency_id, kind="leave", data=row))
+    write_audit(
+        "leave_apply",
+        f"{emp.employee_code} {leave_type} {day_part} {frm}→{to}",
+        agency_id=emp.agency_id,
+    )
+    db.session.commit()
+    return row
+
+
 @bp.route("/leave", methods=["GET", "POST"])
 @login_required
 @employee_required
@@ -109,50 +176,13 @@ def leave():
     quotas = leave_quotas(current_user)
 
     if request.method == "POST":
-        leave_type = (request.form.get("type") or "Annual").strip()
-        if leave_type not in LEAVE_TYPES:
-            leave_type = "Annual"
-        frm = (request.form.get("from") or "").strip()
-        to = (request.form.get("to") or "").strip()
-        reason = (request.form.get("reason") or "").strip()
-        if not frm or not to:
-            flash("Start and end dates are required.", "danger")
-        elif not reason or len(reason) > 2000:
-            flash("Please enter a reason (max 2000 characters).", "danger")
-        else:
-            date_error = None
-            try:
-                d0 = datetime.strptime(frm, "%Y-%m-%d")
-                d1 = datetime.strptime(to, "%Y-%m-%d")
-                if d1 < d0:
-                    date_error = "End date must be on or after start date."
-                elif (d1 - d0).days + 1 > 366:
-                    date_error = "Leave cannot exceed 366 days."
-            except ValueError:
-                date_error = "Use valid dates (YYYY-MM-DD)."
-            if date_error:
-                flash(date_error, "danger")
-            elif leave_overlap_exists(current_user, frm, to):
-                flash("This overlaps an existing pending or approved leave request.", "danger")
-            else:
-                row = {
-                    "employee": str(current_user.id),
-                    "type": leave_type,
-                    "from": frm,
-                    "to": to,
-                    "status": "Pending",
-                    "reason": reason,
-                    "source": "Employee app",
-                }
-                db.session.add(HrRecord(agency_id=current_user.agency_id, kind="leave", data=row))
-                write_audit(
-                    "leave_apply",
-                    f"{current_user.employee_code} {leave_type} {frm}→{to}",
-                    agency_id=current_user.agency_id,
-                )
-                db.session.commit()
-                flash("Leave request submitted. HR will review it.", "success")
-                return redirect(url_for("employee.leave"))
+        try:
+            _apply_leave_from_form(current_user)
+            flash("Leave request submitted. HR will review it.", "success")
+            return redirect(url_for("employee.leave"))
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc), "danger")
 
     return render_template(
         "employee/leave.html",
@@ -229,38 +259,67 @@ def attendance():
     if request.method == "POST":
         action = (request.form.get("action") or "").strip().lower()
         try:
-            extras = _punch_extras_from_request()
-            result = punch_attendance(current_user, action, extras)
-            write_audit(
-                f"emp_punch_{action}",
-                f"{current_user.employee_code} {result.get('record', {}).get('date')}",
-                agency_id=current_user.agency_id,
-            )
-            db.session.commit()
-            msg = (
-                f"Checked in at {result['record'].get('timeIn')} (Dubai). Selfie and GPS saved for HR."
-                if action == "in"
-                else f"Checked out at {result['record'].get('timeOut')} (Dubai). Selfie and GPS saved for HR."
-            )
-            if wants_json:
-                return jsonify(
-                    {
-                        "ok": True,
-                        "message": msg,
-                        "date": dubai_today(),
-                        "attendance": result.get("record"),
-                    }
+            qs = request.args.to_dict()
+            if action == "apply_leave":
+                _apply_leave_from_form(current_user)
+                flash("Leave request submitted. HR will review it.", "success")
+                return redirect(url_for("employee.attendance", **qs))
+            if action == "late_attendance":
+                request_late_attendance(
+                    current_user,
+                    (request.form.get("date") or "").strip(),
+                    (request.form.get("timeIn") or "").strip(),
+                    (request.form.get("timeOut") or "").strip(),
+                    (request.form.get("reason") or "").strip(),
                 )
-            flash(msg, "success")
+                write_audit(
+                    "att_correction_request",
+                    f"{current_user.employee_code} {(request.form.get('date') or '').strip()}",
+                    agency_id=current_user.agency_id,
+                )
+                db.session.commit()
+                flash(
+                    "Late attendance sent to HR for approval. Status stays Pending until HR decides.",
+                    "success",
+                )
+                return redirect(url_for("employee.attendance", **qs))
+            if action in {"in", "out"}:
+                extras = _punch_extras_from_request()
+                result = punch_attendance(current_user, action, extras)
+                write_audit(
+                    f"emp_punch_{action}",
+                    f"{current_user.employee_code} {result.get('record', {}).get('date')}",
+                    agency_id=current_user.agency_id,
+                )
+                db.session.commit()
+                msg = (
+                    f"Checked in at {result['record'].get('timeIn')} (Dubai). Selfie and GPS saved for HR."
+                    if action == "in"
+                    else f"Checked out at {result['record'].get('timeOut')} (Dubai). Selfie and GPS saved for HR."
+                )
+                if wants_json:
+                    return jsonify(
+                        {
+                            "ok": True,
+                            "message": msg,
+                            "date": dubai_today(),
+                            "attendance": result.get("record"),
+                        }
+                    )
+                flash(msg, "success")
+            else:
+                flash("Unknown action.", "danger")
         except ValueError as exc:
             db.session.rollback()
-            if wants_json:
+            if wants_json and action in {"in", "out"}:
                 return jsonify({"ok": False, "error": str(exc)}), 400
             flash(str(exc), "danger")
-        return redirect(url_for("employee.attendance"))
+        return redirect(url_for("employee.attendance", **request.args.to_dict()))
 
+    period = employee_period_from_args(request.args)
+    timesheet = build_employee_timesheet(current_user, period["start"], period["end"])
+    quotas = leave_quotas(current_user)
     att = today_attendance_record(current_user)
-    history = records_for_employee(current_user, "attendance")[:30]
     d = (att.data if att else {}) or {}
     open_punch = bool(d.get("timeIn") and not d.get("timeOut"))
     finished_today = bool(
@@ -275,7 +334,10 @@ def attendance():
         agency=agency,
         employee=current_user,
         attendance=att,
-        history=history,
+        timesheet=timesheet,
+        period=period,
+        quotas=quotas,
+        leave_types=LEAVE_TYPES,
         can_in=can_in,
         can_out=can_out,
         today=dubai_today(),

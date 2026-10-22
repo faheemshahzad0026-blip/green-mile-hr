@@ -191,7 +191,9 @@ def _sync_auth_employee(agency_id, data, record_id=None):
 @login_required
 @admin_required
 def attendance_hub():
-    """View-only attendance: all employee punches + correction requests (HR cannot add)."""
+    """Daily punches (view-only) + correction requests (HR approve / reject)."""
+    from app.employee.services import review_attendance_correction
+
     agency = _agency_or_redirect()
     if not agency:
         return redirect(
@@ -201,9 +203,35 @@ def attendance_hub():
         )
 
     if request.method == "POST":
-        flash("Attendance is view-only. Records come from employee punches.", "warning")
-        tab = request.form.get("tab") or "daily"
-        return redirect(url_for("modules.attendance_hub", tab=tab))
+        action = (request.form.get("action") or "").strip()
+        tab = request.form.get("tab") or "corrections"
+        if action in {"Approved", "Rejected"}:
+            try:
+                cid = int(request.form.get("id") or 0)
+                review_attendance_correction(
+                    agency.id,
+                    cid,
+                    action,
+                    (request.form.get("reviewNote") or "").strip(),
+                )
+                write_audit(
+                    f"att_correction_{action.lower()}",
+                    f"#{cid}",
+                    agency_id=agency.id,
+                )
+                db.session.commit()
+                flash(
+                    "Attendance marked Present."
+                    if action == "Approved"
+                    else "Request rejected — day stays Absent.",
+                    "success",
+                )
+            except ValueError as exc:
+                db.session.rollback()
+                flash(str(exc), "danger")
+            return redirect(url_for("modules.attendance_hub", tab="corrections"))
+        flash("Daily attendance punches are view-only.", "warning")
+        return redirect(url_for("modules.attendance_hub", tab=tab or "daily"))
 
     tab = request.args.get("tab") or "daily"
     if tab not in {"daily", "corrections"}:

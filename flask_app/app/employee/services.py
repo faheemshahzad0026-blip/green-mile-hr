@@ -97,13 +97,15 @@ def records_for_employee(emp: Employee, kind: str) -> list[HrRecord]:
     return [r for r in rows if str((r.data or {}).get("employee") or "") in match]
 
 
-def leave_day_count(data: dict) -> int:
+def leave_day_count(data: dict) -> float:
     try:
+        if (data or {}).get("dayPart") == "Half":
+            return 0.5
         frm = datetime.strptime((data or {}).get("from") or "", "%Y-%m-%d")
         to = datetime.strptime((data or {}).get("to") or "", "%Y-%m-%d")
-        return max((to - frm).days + 1, 0)
+        return float(max((to - frm).days + 1, 0))
     except Exception:
-        return 0
+        return 0.0
 
 
 def _parse_ymd(s: str) -> date | None:
@@ -651,6 +653,9 @@ def _normalize_location(location) -> dict | None:
         return None
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         return None
+    # Reject empty / obviously missing device GPS
+    if lat == 0.0 and lng == 0.0:
+        return None
     acc = location.get("accuracy")
     try:
         acc = float(acc) if acc is not None else None
@@ -700,7 +705,10 @@ def punch_attendance(emp: Employee, action: str, extras: dict | None = None) -> 
         if old and old.get("timeIn") and (old.get("date") or "") == today:
             raise ValueError("Already checked in today.")
         if not location:
-            raise ValueError("Location is required for check-in. Allow GPS and try again.")
+            raise ValueError(
+                "Attendance failed: device location is off or unavailable. "
+                "Turn on Location / GPS, allow this site, then try again."
+            )
         if not selfie_path:
             raise ValueError("Take a selfie before checking in.")
         punch_date = today
@@ -732,7 +740,10 @@ def punch_attendance(emp: Employee, action: str, extras: dict | None = None) -> 
     if old.get("timeOut"):
         raise ValueError("Already checked out.")
     if not location:
-        raise ValueError("Location is required for check-out. Allow GPS and try again.")
+        raise ValueError(
+            "Attendance failed: device location is off or unavailable. "
+            "Turn on Location / GPS, allow this site, then try again."
+        )
     if not selfie_path:
         raise ValueError("Take a selfie before checking out.")
     data = {
@@ -793,6 +804,7 @@ def employee_notifications(emp: Employee, limit: int = 20) -> list[dict]:
                     "announcements",
                     "shifts",
                     "leave",
+                    "corrections",
                     "certificateRequests",
                     "helpDesk",
                     "resignations",
@@ -855,6 +867,18 @@ def employee_notifications(emp: Employee, limit: int = 20) -> list[dict]:
                 "reason": d.get("reason"),
             }
             href = url_for("employee.leave")
+        elif r.kind == "corrections":
+            if str(d.get("employee") or "") not in match:
+                continue
+            if (d.get("status") or "") not in {"Approved", "Rejected"}:
+                continue
+            title = f"Attendance {(d.get('status') or '').lower()}"
+            message = (
+                f"{d.get('date') or '—'} · "
+                f"{'Marked Present' if d.get('status') == 'Approved' else 'Marked Absent'}"
+            )
+            event = {"status": d.get("status"), "date": d.get("date"), "reviewNote": d.get("reviewNote")}
+            href = url_for("employee.attendance")
         elif r.kind == "certificateRequests":
             if str(d.get("employee") or "") not in match:
                 continue
@@ -954,3 +978,283 @@ def leave_overlap_exists(emp: Employee, frm: str, to: str, exclude_id: int | Non
         if frm <= b and to >= a:
             return True
     return False
+
+
+def employee_period_from_args(args) -> dict:
+    """Employee timesheet date range (query params — not admin session)."""
+    from app.period import PERIOD_OPTIONS, dubai_today as period_today
+
+    key = (args.get("period") or "7d").strip()
+    valid = {k for k, _ in PERIOD_OPTIONS}
+    if key not in valid:
+        key = "7d"
+    today = period_today()
+    custom_from = args.get("from") or ""
+    custom_to = args.get("to") or ""
+    start = today
+    end = today
+    label = "Today"
+    if key == "all":
+        start = today - timedelta(days=364)
+        end = today
+        label = "Last 12 months"
+        key = "12m"
+    elif key == "7d":
+        start = today - timedelta(days=6)
+        label = "Last 7 days"
+    elif key == "1m":
+        start = today - timedelta(days=29)
+        label = "Last 1 month"
+    elif key == "3m":
+        start = today - timedelta(days=89)
+        label = "Last 3 months"
+    elif key == "6m":
+        start = today - timedelta(days=179)
+        label = "Last 6 months"
+    elif key == "12m":
+        start = today - timedelta(days=364)
+        label = "Last 12 months"
+    elif key == "custom":
+        try:
+            start = datetime.strptime(str(custom_from)[:10], "%Y-%m-%d").date()
+        except Exception:
+            start = today - timedelta(days=6)
+        try:
+            end = datetime.strptime(str(custom_to)[:10], "%Y-%m-%d").date()
+        except Exception:
+            end = today
+        if start > end:
+            start, end = end, start
+        # Cap range at 120 days for page size
+        if (end - start).days > 119:
+            start = end - timedelta(days=119)
+        label = f"{start.strftime('%d/%m/%Y')} – {end.strftime('%d/%m/%Y')}"
+    else:
+        key = "today"
+        start = today
+        end = today
+        label = "Today"
+    return {
+        "key": key,
+        "label": label,
+        "start": start,
+        "end": end,
+        "custom_from": start.isoformat(),
+        "custom_to": end.isoformat(),
+        "options": [(k, lab) for k, lab in PERIOD_OPTIONS if k != "all"],
+    }
+
+
+def build_employee_timesheet(emp: Employee, start: date, end: date) -> list[dict]:
+    """One row per day: date, day name, times, status, actions flags."""
+    today = dubai_today()
+    today_d = datetime.strptime(today, "%Y-%m-%d").date()
+    att_map = {}
+    for r in records_for_employee(emp, "attendance"):
+        d = r.data or {}
+        day = str(d.get("date") or "")
+        if day:
+            att_map[day] = {"id": r.id, "data": d}
+    leave_rows = [
+        r
+        for r in records_for_employee(emp, "leave")
+        if (r.data or {}).get("status") in {"Pending", "Approved"}
+    ]
+    corr_map = {}
+    for r in records_for_employee(emp, "corrections"):
+        d = r.data or {}
+        day = str(d.get("date") or "")
+        if not day:
+            continue
+        st = d.get("status") or ""
+        if st == "Pending" or day not in corr_map:
+            corr_map[day] = {"id": r.id, "data": d, "status": st}
+
+    rows = []
+    cur = end
+    while cur >= start:
+        day = cur.isoformat()
+        att = att_map.get(day)
+        corr = corr_map.get(day)
+        on_leave = None
+        for r in leave_rows:
+            d = r.data or {}
+            frm, to = d.get("from") or "", d.get("to") or ""
+            if frm and to and frm <= day <= to:
+                on_leave = d
+                break
+
+        time_in = format_time_12h((att or {}).get("data", {}).get("timeIn")) if att else "—"
+        time_out = format_time_12h((att or {}).get("data", {}).get("timeOut")) if att else "—"
+        if time_in == "—" and time_out == "—":
+            time_label = "—"
+        else:
+            time_label = f"{time_in if time_in != '—' else '—'} – {time_out if time_out != '—' else '—'}"
+
+        if on_leave and (on_leave.get("status") == "Approved"):
+            status = "On leave"
+            status_key = "on_leave"
+        elif corr and (corr.get("status") == "Pending"):
+            status = "Pending approval"
+            status_key = "pending"
+        elif att and (att["data"].get("timeIn") or (att["data"].get("status") or "").lower() == "present"):
+            status = "Present"
+            status_key = "present"
+        elif corr and (corr.get("status") == "Rejected"):
+            status = "Absent"
+            status_key = "absent"
+        elif day > today:
+            status = "—"
+            status_key = "future"
+        else:
+            status = "Absent"
+            status_key = "absent"
+
+        can_request_att = status_key in {"absent"} and day <= today and not (
+            corr and corr.get("status") == "Pending"
+        )
+        can_apply_leave = status_key not in {"on_leave", "future"} and day <= today
+
+        rows.append(
+            {
+                "date": day,
+                "day": cur.strftime("%a"),
+                "day_long": cur.strftime("%A"),
+                "time": time_label,
+                "time_in": time_in,
+                "time_out": time_out,
+                "status": status,
+                "status_key": status_key,
+                "leave_type": (on_leave or {}).get("type") if on_leave else "",
+                "correction_id": (corr or {}).get("id"),
+                "can_request_attendance": can_request_att,
+                "can_apply_leave": can_apply_leave,
+                "is_today": day == today,
+            }
+        )
+        cur -= timedelta(days=1)
+    return rows
+
+
+def request_late_attendance(
+    emp: Employee,
+    day: str,
+    time_in: str,
+    time_out: str,
+    reason: str,
+) -> HrRecord:
+    """Employee forgot to punch — Pending correction for HR."""
+    today = dubai_today()
+    if not day or day > today:
+        raise ValueError("Choose today or an earlier date.")
+    try:
+        datetime.strptime(day, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("Invalid attendance date.") from None
+    reason = (reason or "").strip()
+    if not reason or len(reason) > 2000:
+        raise ValueError("Enter a reason (max 2000 characters).")
+    tin = format_time_12h(time_in) if time_in else ""
+    if not tin or tin == "—":
+        raise ValueError("Enter the check-in time you missed.")
+    tout = format_time_12h(time_out) if time_out else ""
+    if tout == "—":
+        tout = ""
+
+    for r in records_for_employee(emp, "corrections"):
+        d = r.data or {}
+        if (d.get("date") or "") == day and (d.get("status") or "") == "Pending":
+            raise ValueError("A pending attendance request already exists for this date.")
+
+    base = None
+    for r in records_for_employee(emp, "attendance"):
+        if (r.data or {}).get("date") == day:
+            base = r
+            break
+
+    data = {
+        "employee": str(emp.id),
+        "date": day,
+        "timeIn": tin,
+        "timeOut": tout,
+        "timeOutDate": day if tout else "",
+        "reason": reason,
+        "status": "Pending",
+        "source": "Employee app",
+        "requestType": "Late attendance",
+        "baseAttendanceId": base.id if base else None,
+    }
+    rec = HrRecord(agency_id=emp.agency_id, kind="corrections", data=data)
+    db.session.add(rec)
+    db.session.flush()
+    return rec
+
+
+def review_attendance_correction(
+    agency_id: int,
+    correction_id: int,
+    decision: str,
+    review_note: str = "",
+) -> HrRecord:
+    """HR approve → Present attendance; reject → stays Absent."""
+    decision = (decision or "").strip()
+    if decision not in {"Approved", "Rejected"}:
+        raise ValueError("Choose Approved or Rejected.")
+    rec = HrRecord.query.filter_by(
+        id=correction_id, agency_id=agency_id, kind="corrections"
+    ).first()
+    if not rec:
+        raise ValueError("Correction request not found.")
+    d = dict(rec.data or {})
+    if (d.get("status") or "") != "Pending":
+        raise ValueError("This request was already reviewed.")
+    now = dubai_now_iso()
+    d["status"] = decision
+    d["reviewedAt"] = now
+    d["reviewNote"] = (review_note or "").strip()[:2000]
+
+    if decision == "Approved":
+        emp_ref = str(d.get("employee") or "")
+        day = d.get("date") or ""
+        existing = (
+            HrRecord.query.filter_by(agency_id=agency_id, kind="attendance")
+            .order_by(HrRecord.id.desc())
+            .all()
+        )
+        att = None
+        for r in existing:
+            if str((r.data or {}).get("employee") or "") == emp_ref and (
+                r.data or {}
+            ).get("date") == day:
+                att = r
+                break
+        attendance_data = {
+            **((att.data if att else {}) or {}),
+            "employee": emp_ref,
+            "date": day,
+            "timeIn": d.get("timeIn") or "",
+            "timeOut": d.get("timeOut") or "",
+            "timeOutDate": d.get("timeOutDate") or (day if d.get("timeOut") else ""),
+            "method": "Manual",
+            "status": "Present",
+            "notes": (
+                (((att.data if att else {}) or {}).get("notes") or "")
+                + (" | " if att and (att.data or {}).get("notes") else "")
+                + f"HR-approved late attendance #{correction_id}."
+            ).strip(" |"),
+            "correctionRequestId": correction_id,
+            "correctedAt": now,
+        }
+        if att:
+            att.data = attendance_data
+        else:
+            db.session.add(
+                HrRecord(agency_id=agency_id, kind="attendance", data=attendance_data)
+            )
+        d["afterStatus"] = "Present"
+    else:
+        d["afterStatus"] = "Absent"
+
+    rec.data = d
+    db.session.flush()
+    return rec

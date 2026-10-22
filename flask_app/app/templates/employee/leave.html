@@ -38,20 +38,21 @@
 
 <section class="card table-card">
   <div class="card-head">
-    <div><h2>My leave history</h2><p>Approved / booked annual days count against your cycle quota.</p></div>
+    <div><h2>My leave history</h2><p>Approved / booked days count against your quota. Half days use 0.5.</p></div>
   </div>
   {% if leaves %}
   <div class="table-scroll">
     <table>
       <thead>
-        <tr><th>TYPE</th><th>FROM</th><th>TO</th><th>STATUS</th><th>SOURCE</th><th>REASON</th></tr>
+        <tr><th>TYPE</th><th>FROM</th><th>TO</th><th>DAYS</th><th>STATUS</th><th>SOURCE</th><th>REASON</th></tr>
       </thead>
       <tbody>
         {% for r in leaves %}
         <tr>
-          <td><strong>{{ r.get('type') or '—' }}</strong></td>
+          <td><strong>{{ r.get('type') or '—' }}</strong>{% if r.get('dayPart') == 'Half' %} · half{% endif %}</td>
           <td>{{ r.get('from') or '—' }}</td>
           <td>{{ r.get('to') or '—' }}</td>
+          <td>{{ r.get('days') if r.get('days') is not none else '—' }}</td>
           <td><span class="badge">{{ r.get('status') or '—' }}</span></td>
           <td>{{ r.get('source') or 'HR' }}</td>
           <td>{{ r.get('reason') or '—' }}</td>
@@ -70,73 +71,6 @@
   {% endif %}
 </section>
 
-<div class="modal-backdrop" id="leaveFormModal" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="leaveFormTitle">
-    <form method="post" id="leaveForm">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="modal-head">
-        <div>
-          <div class="eyebrow">LEAVE</div>
-          <h2 id="leaveFormTitle">Apply for leave</h2>
-          <p>Cannot overlap another pending or approved request.</p>
-        </div>
-        <button type="button" class="icon" onclick="closeLeaveModal()" aria-label="Close">✕</button>
-      </div>
-      <div class="form-body">
-        <div class="form-grid">
-          <label>
-            <span class="field-label">Leave type<em> *</em></span>
-            <select name="type" required>
-              {% for t in leave_types %}
-              <option value="{{ t }}" {% if t == 'Annual' %}selected{% endif %}>{{ t }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label>
-            <span class="field-label">Start date<em> *</em></span>
-            <input type="date" name="from" required>
-          </label>
-          <label>
-            <span class="field-label">End date<em> *</em></span>
-            <input type="date" name="to" required>
-          </label>
-          <label style="grid-column:1/-1">
-            <span class="field-label">Reason<em> *</em></span>
-            <input type="text" name="reason" maxlength="2000" required placeholder="e.g. Family travel">
-          </label>
-        </div>
-      </div>
-      <div class="modal-foot">
-        <button type="button" class="secondary" onclick="closeLeaveModal()">Cancel</button>
-        <button class="primary" type="submit">Submit leave request</button>
-      </div>
-    </form>
-  </div>
-</div>
-{% endblock %}
-{% block scripts %}
-{{ super() }}
-<script>
-function openLeaveModal(){
-  const modal=document.getElementById('leaveFormModal');
-  const form=document.getElementById('leaveForm');
-  if(!modal||!form) return;
-  form.reset();
-  const type=form.querySelector('[name="type"]');
-  if(type) type.value='Annual';
-  modal.hidden=false;
-  document.body.style.overflow='hidden';
-  if(window.applyPlaceholders) window.applyPlaceholders(modal);
-  const first=form.querySelector('[name="from"]');
-  if(first) setTimeout(()=>first.focus(),50);
-}
-function closeLeaveModal(){
-  const modal=document.getElementById('leaveFormModal');
-  if(!modal) return;
-  modal.hidden=true;
-  document.body.style.overflow='';
-}
-document.addEventListener('click',function(e){ if(e.target.id==='leaveFormModal') closeLeaveModal(); });
-document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeLeaveModal(); });
-</script>
+{% set leave_form_action = url_for('employee.leave') %}
+{% include "partials/leave_apply_modal.html" %}
 {% endblock %}

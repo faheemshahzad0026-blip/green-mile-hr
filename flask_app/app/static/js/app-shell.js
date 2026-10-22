@@ -159,6 +159,7 @@
 
       document.title = doc.title || document.title;
       document.body.className = doc.body.className || "";
+      document.body.style.overflow = "";
 
       // Keep agency logo as favicon across soft navigation
       function syncIcon(id, rel) {

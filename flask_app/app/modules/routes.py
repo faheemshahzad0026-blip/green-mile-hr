@@ -676,16 +676,9 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
         q=q,
         tab=tab,
         read_only=read_only,
-        # Open add/edit record modal when ?new=1 or ?edit=id
-        show_form=(
-            not read_only
-            and kind != "employees"
-            and (request.args.get("new") == "1" or edit_record is not None)
-        ),
-        open_employee_form=(
-            kind == "employees"
-            and (request.args.get("new") == "1" or edit_record is not None)
-        ),
+        # Modals open only on button click (not on page load / ?new / ?edit)
+        show_form=False,
+        open_employee_form=False,
         open_app_id=open_app_id,
     )
 

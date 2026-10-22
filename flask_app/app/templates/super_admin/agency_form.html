@@ -93,6 +93,6 @@ function closeAgencyModal(){
 }
 document.addEventListener('click',function(e){ if(e.target.id==='agencyFormModal') closeAgencyModal(); });
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeAgencyModal(); });
-openAgencyModal();
+{% if form.errors %}openAgencyModal();{% endif %}
 </script>
 {% endblock %}

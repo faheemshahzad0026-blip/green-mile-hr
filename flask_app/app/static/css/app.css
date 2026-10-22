@@ -293,7 +293,7 @@ textarea{border:1px solid #dfe7d7;border-radius:6px;padding:10px 11px;background
 .table-card:has(.action-drop) .table-scroll{overflow-x:auto;overflow-y:visible}
 
 /* App access modal */
-.app-access-backdrop[hidden],.employee-form-backdrop[hidden]{display:none!important}
+.modal-backdrop[hidden],.app-access-backdrop[hidden],.employee-form-backdrop[hidden],.record-form-backdrop[hidden]{display:none!important}
 .employee-form-backdrop{z-index:100}
 .employee-form-backdrop .modal{max-height:min(90vh,920px)}
 .employee-form-backdrop .form-body{max-height:min(60vh,560px)}

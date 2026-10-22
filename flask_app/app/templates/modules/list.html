@@ -360,21 +360,6 @@ window.__gmRecordModalKey=function(e){
 document.addEventListener('click', window.__gmRecordModalClick);
 document.addEventListener('keydown', window.__gmRecordModalKey);
 
-(function initRecordPageModal(){
-{% if show_form %}
-  {% if edit_record %}
-  openRecordModal({{ edit_record.id }}, {{ (edit_record.data or {})|tojson }});
-  {% else %}
-  openRecordModal();
-  {% endif %}
-  if(window.history&&window.history.replaceState){
-    const url=new URL(window.location.href);
-    url.searchParams.delete('new');
-    url.searchParams.delete('edit');
-    window.history.replaceState({},'',url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():''));
-  }
-{% endif %}
-})();
 </script>
 {% endif %}
 {% if kind == 'employees' %}
@@ -611,17 +596,9 @@ document.addEventListener('click', window.__gmAppAccessClick);
 {% if open_app_id %}
   const el=document.querySelector('[data-app-open="{{ open_app_id }}"]');
   if(el) openAppAccessModal(el);
-{% endif %}
-{% if open_employee_form %}
-  {% if edit_record %}
-  openEmployeeModal({{ edit_record.id }}, {{ (edit_record.data or {})|tojson }});
-  {% else %}
-  openEmployeeModal();
-  {% endif %}
   if(window.history&&window.history.replaceState){
     const url=new URL(window.location.href);
-    url.searchParams.delete('new');
-    url.searchParams.delete('edit');
+    url.searchParams.delete('app');
     window.history.replaceState({},'',url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():''));
   }
 {% endif %}

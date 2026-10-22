@@ -2,79 +2,309 @@
 {% block title %}Attendance · Green Mile HR{% endblock %}
 {% block page_title %}Attendance{% endblock %}
 {% block heading %}Attendance{% endblock %}
-{% block description %}Check in / out (Dubai time). Your punches appear on the HR Attendance panel automatically.{% endblock %}
+{% block description %}Check in / out with selfie and GPS (Dubai 12-hour time). HR sees your punch, photo and location.{% endblock %}
 {% block content %}
 {% set d = (attendance.data if attendance else {}) or {} %}
+{% set tin = format_time_12h(d.get('timeIn')) if d.get('timeIn') else '—' %}
+{% set tout = format_time_12h(d.get('timeOut')) if d.get('timeOut') else '—' %}
 
-<div class="stats emp-quota-stats">
-  <div class="stat">
-    <div class="stat-top"><span>Today (Dubai)</span></div>
-    <div class="stat-value" style="font-size:22px">{{ today }}</div>
-    <div class="stat-sub">Local time {{ now_time }}</div>
-  </div>
-  <div class="stat">
-    <div class="stat-top"><span>Check-in</span></div>
-    <div class="stat-value" style="font-size:22px">{{ d.get('timeIn') or '—' }}</div>
-    <div class="stat-sub">{{ d.get('method') or 'Not punched' }}</div>
-  </div>
-  <div class="stat">
-    <div class="stat-top"><span>Check-out</span></div>
-    <div class="stat-value" style="font-size:22px">{{ d.get('timeOut') or '—' }}</div>
-    <div class="stat-sub">{% if d.get('timeOutDate') and d.get('timeOutDate') != d.get('date') %}Out date {{ d.get('timeOutDate') }}{% else %}{{ d.get('status') or '—' }}{% endif %}</div>
-  </div>
-  <div class="stat">
-    <div class="stat-top"><span>Shift</span></div>
-    <div class="stat-value" style="font-size:18px">{% if shift %}{{ shift.get('name') or 'Assigned' }}{% else %}—{% endif %}</div>
-    <div class="stat-sub">{% if shift %}{{ shift.get('start') or '—' }} – {{ shift.get('end') or '—' }}{% else %}Ask HR to assign{% endif %}</div>
-  </div>
-</div>
-
-<section class="card" style="margin-bottom:22px">
-  <div class="card-head">
-    <div>
-      <h2>Punch</h2>
-      <p>Same records HR sees under Attendance · Daily.</p>
+<div class="mobile-attendance-layout emp-att-layout">
+  <section class="card punch-card">
+    <div class="punch-brand">
+      {% if agency and agency.logo_path %}
+      <img src="{{ url_for('static', filename=agency.logo_path) }}" alt="">
+      {% else %}
+      <img src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="Green Mile">
+      {% endif %}
+      <div>
+        <strong>{{ agency.company_name if agency else 'Green Mile HR' }}</strong>
+        <span>Employee attendance · selfie + GPS</span>
+      </div>
+      <span class="live-chip"><i></i><span id="attOnlineLabel">ONLINE</span></span>
     </div>
-  </div>
-  <div class="emp-quick-actions" style="padding:0 22px 22px">
-    <form method="post" style="display:inline" data-full-nav="1">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="in">
-      <button class="primary" type="submit" {% if not can_in %}disabled{% endif %}>Check in</button>
-    </form>
-    <form method="post" style="display:inline" data-full-nav="1">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="out">
-      <button class="secondary" type="submit" {% if not can_out %}disabled{% endif %}>Check out</button>
-    </form>
-  </div>
-</section>
 
-<section class="card table-card">
-  <div class="card-head">
-    <div><h2>Recent punches</h2><p>Visible to you and HR.</p></div>
-  </div>
-  {% if history %}
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr><th>DATE</th><th>IN</th><th>OUT</th><th>METHOD</th><th>STATUS</th></tr>
-      </thead>
-      <tbody>
-        {% for r in history %}
-        <tr>
-          <td><strong>{{ r.get('date') or '—' }}</strong></td>
-          <td>{{ r.get('timeIn') or '—' }}</td>
-          <td>{{ r.get('timeOut') or '—' }}{% if r.get('timeOutDate') and r.get('timeOutDate') != r.get('date') %} <small>({{ r.get('timeOutDate') }})</small>{% endif %}</td>
-          <td>{{ r.get('method') or '—' }}</td>
-          <td><span class="badge">{{ r.get('status') or '—' }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty"><p>No punches yet. Use Check in above.</p></div>
-  {% endif %}
-</section>
+    <div class="punch-clock">
+      <div class="eyebrow">DUBAI LOCAL TIME</div>
+      <strong id="attClock">{{ now_time }}</strong>
+      <span>{{ today }}</span>
+    </div>
+
+    <div class="punch-status">
+      <div>
+        <span>Check in<strong id="attTimeIn">{{ tin }}</strong></span>
+      </div>
+      <div>
+        <span>Check out<strong id="attTimeOut">{{ tout }}</strong></span>
+      </div>
+    </div>
+
+    {% if shift %}
+    <div class="emp-att-shift">
+      <strong>{{ shift.get('name') or 'Shift' }}</strong>
+      <span>{{ format_time_12h(shift.get('start')) if shift.get('start') else '—' }} – {{ format_time_12h(shift.get('end')) if shift.get('end') else '—' }} · Rest {{ shift.get('restDay') or '—' }}</span>
+    </div>
+    {% endif %}
+
+    <div class="gps-status" id="gpsStatus">
+      <span class="gps-pin" aria-hidden="true">◎</span>
+      <div>
+        <strong id="gpsTitle">Location required</strong>
+        <span id="gpsDetail">Allow GPS so HR can see where you punched from.</span>
+      </div>
+      <button type="button" class="text-btn" id="gpsRefresh">Get GPS</button>
+    </div>
+
+    <div class="selfie-panel">
+      <div class="selfie-stage">
+        <video id="selfieVideo" playsinline autoplay muted hidden></video>
+        <canvas id="selfieCanvas" hidden></canvas>
+        <img id="selfiePreview" alt="Selfie preview" hidden>
+        <div class="selfie-empty" id="selfieEmpty">Camera selfie required for each punch</div>
+      </div>
+      <div class="selfie-actions">
+        <button type="button" class="secondary" id="selfieStart">Open camera</button>
+        <button type="button" class="secondary" id="selfieSnap" disabled>Take selfie</button>
+        <button type="button" class="text-btn" id="selfieRetake" hidden>Retake</button>
+      </div>
+      <p class="punch-note">Photo evidence only — not face recognition. Device GPS can be imprecise.</p>
+    </div>
+
+    <div class="alert error" id="attError" hidden role="alert"></div>
+    <div class="alert success" id="attSuccess" hidden role="status"></div>
+
+    <div class="punch-buttons">
+      <button type="button" class="primary" id="btnCheckIn" {% if not can_in %}disabled data-locked="1"{% endif %}>Check in</button>
+      <button type="button" class="secondary" id="btnCheckOut" {% if not can_out %}disabled data-locked="1"{% endif %}>Check out</button>
+    </div>
+    <div class="punch-progress" id="attBusy" hidden role="status">Saving punch…</div>
+  </section>
+
+  <section class="card table-card emp-att-history">
+    <div class="card-head">
+      <div><h2>Recent punches</h2><p>Times in 12-hour Dubai format · visible to HR with selfie &amp; GPS.</p></div>
+    </div>
+    {% if history %}
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>DATE</th><th>IN</th><th>OUT</th><th>GPS</th><th>SELFIE</th><th>STATUS</th></tr>
+        </thead>
+        <tbody>
+          {% for r in history %}
+          <tr>
+            <td><strong>{{ r.get('date') or '—' }}</strong></td>
+            <td>{{ format_time_12h(r.get('timeIn')) }}</td>
+            <td>
+              {{ format_time_12h(r.get('timeOut')) }}
+              {% if r.get('timeOutDate') and r.get('timeOutDate') != r.get('date') %}
+              <small>({{ r.get('timeOutDate') }})</small>
+              {% endif %}
+            </td>
+            <td>
+              {% set loc = r.get('checkInLocation') or r.get('checkOutLocation') %}
+              {% if loc and loc.latitude is defined %}
+              <a class="text-btn" href="https://maps.google.com/?q={{ loc.latitude }},{{ loc.longitude }}" target="_blank" rel="noopener">Map</a>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if r.get('checkInSelfie') or r.get('checkOutSelfie') %}
+                {% if r.get('checkInSelfie') %}<a class="text-btn" href="{{ url_for('static', filename=r.get('checkInSelfie')) }}" target="_blank" rel="noopener">In</a>{% endif %}
+                {% if r.get('checkInSelfie') and r.get('checkOutSelfie') %} · {% endif %}
+                {% if r.get('checkOutSelfie') %}<a class="text-btn" href="{{ url_for('static', filename=r.get('checkOutSelfie')) }}" target="_blank" rel="noopener">Out</a>{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td><span class="badge">{{ r.get('status') or '—' }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty"><p>No punches yet. Take a selfie, allow GPS, then Check in.</p></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function(){
+  const csrf=document.querySelector('meta[name=csrf-token]')?.content||'';
+  const clockEl=document.getElementById('attClock');
+  const onlineLabel=document.getElementById('attOnlineLabel');
+  const gpsTitle=document.getElementById('gpsTitle');
+  const gpsDetail=document.getElementById('gpsDetail');
+  const errEl=document.getElementById('attError');
+  const okEl=document.getElementById('attSuccess');
+  const busyEl=document.getElementById('attBusy');
+  const video=document.getElementById('selfieVideo');
+  const canvas=document.getElementById('selfieCanvas');
+  const preview=document.getElementById('selfiePreview');
+  const empty=document.getElementById('selfieEmpty');
+  const btnStart=document.getElementById('selfieStart');
+  const btnSnap=document.getElementById('selfieSnap');
+  const btnRetake=document.getElementById('selfieRetake');
+  const btnIn=document.getElementById('btnCheckIn');
+  const btnOut=document.getElementById('btnCheckOut');
+  let stream=null, point=null, selfieBlob=null, busy=false;
+
+  function setOnline(){
+    const on=navigator.onLine;
+    if(onlineLabel) onlineLabel.textContent=on?'ONLINE':'OFFLINE';
+  }
+  window.addEventListener('online', setOnline);
+  window.addEventListener('offline', setOnline);
+  setOnline();
+
+  function tick(){
+    if(!clockEl) return;
+    clockEl.textContent=new Intl.DateTimeFormat('en-US',{
+      timeZone:'Asia/Dubai', hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true
+    }).format(new Date());
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  function showErr(msg){
+    if(okEl){okEl.hidden=true;}
+    if(!errEl) return;
+    errEl.hidden=!msg;
+    errEl.textContent=msg||'';
+  }
+  function showOk(msg){
+    if(errEl) errEl.hidden=true;
+    if(!okEl) return;
+    okEl.hidden=!msg;
+    okEl.textContent=msg||'';
+  }
+  function setBusy(on, label){
+    busy=!!on;
+    if(busyEl){busyEl.hidden=!on; busyEl.textContent=label||'Saving punch…';}
+    [btnIn,btnOut,btnStart,btnSnap,btnRetake,document.getElementById('gpsRefresh')].forEach(function(b){
+      if(b && b!==btnSnap) b.disabled=on || (b.dataset.locked==='1');
+    });
+  }
+
+  function locate(){
+    return new Promise(function(resolve, reject){
+      if(!navigator.geolocation){
+        reject(new Error('Location is not supported on this device.'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(function(p){
+        point={
+          latitude:p.coords.latitude,
+          longitude:p.coords.longitude,
+          accuracy:p.coords.accuracy,
+          timestamp:p.timestamp
+        };
+        if(gpsTitle) gpsTitle.textContent='GPS captured';
+        if(gpsDetail) gpsDetail.textContent='Accuracy ±'+Math.round(p.coords.accuracy||0)+' m · HR can open this on a map';
+        resolve(point);
+      }, function(e){
+        reject(new Error(e.code===1
+          ? 'Location permission denied. Enable location for this site.'
+          : 'Could not get GPS. Move near a window and retry.'));
+      }, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
+    });
+  }
+
+  document.getElementById('gpsRefresh')?.addEventListener('click', function(){
+    showErr('');
+    setBusy(true, 'Getting GPS…');
+    locate().then(function(){ setBusy(false); }).catch(function(e){
+      setBusy(false); showErr(e.message);
+    });
+  });
+
+  async function startCamera(){
+    showErr('');
+    try{
+      if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
+      stream=await navigator.mediaDevices.getUserMedia({
+        audio:false,
+        video:{ facingMode:'user', width:{ideal:720}, height:{ideal:720} }
+      });
+      video.srcObject=stream;
+      video.hidden=false;
+      preview.hidden=true;
+      empty.hidden=true;
+      btnSnap.disabled=false;
+      btnRetake.hidden=true;
+      selfieBlob=null;
+    }catch(e){
+      showErr('Camera permission is required to take your selfie.');
+    }
+  }
+
+  function stopCamera(){
+    if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
+    video.hidden=true;
+  }
+
+  function takeSelfie(){
+    if(!stream) return;
+    const w=video.videoWidth||640, h=video.videoHeight||640;
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, w, h);
+    canvas.toBlob(function(blob){
+      if(!blob){ showErr('Could not capture selfie. Try again.'); return; }
+      selfieBlob=blob;
+      preview.src=URL.createObjectURL(blob);
+      preview.hidden=false;
+      empty.hidden=true;
+      stopCamera();
+      btnSnap.disabled=true;
+      btnRetake.hidden=false;
+      btnStart.textContent='Open camera';
+    }, 'image/jpeg', 0.82);
+  }
+
+  btnStart?.addEventListener('click', startCamera);
+  btnSnap?.addEventListener('click', takeSelfie);
+  btnRetake?.addEventListener('click', function(){
+    selfieBlob=null;
+    preview.hidden=true;
+    startCamera();
+  });
+
+  async function punch(action){
+    if(busy) return;
+    if(!navigator.onLine){ showErr('You are offline. Connect to the internet to punch.'); return; }
+    showErr(''); showOk('');
+    setBusy(true, action==='in'?'Getting GPS for check-in…':'Getting GPS for check-out…');
+    try{
+      if(!selfieBlob) throw new Error('Take a selfie before punching.');
+      const location=await locate();
+      setBusy(true, 'Saving punch…');
+      const fd=new FormData();
+      fd.append('csrf_token', csrf);
+      fd.append('action', action);
+      fd.append('location', JSON.stringify(location));
+      fd.append('selfie', selfieBlob, 'selfie.jpg');
+      const res=await fetch({{ url_for('employee.attendance')|tojson }}, {
+        method:'POST',
+        body:fd,
+        credentials:'same-origin',
+        headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
+      });
+      const data=await res.json().catch(function(){return {};});
+      if(!res.ok || data.ok===false) throw new Error(data.error||'Could not save attendance.');
+      showOk(data.message||'Saved.');
+      setTimeout(function(){ window.location.reload(); }, 700);
+    }catch(e){
+      showErr(e.message||'Punch failed.');
+      setBusy(false);
+    }
+  }
+
+  btnIn?.addEventListener('click', function(){ punch('in'); });
+  btnOut?.addEventListener('click', function(){ punch('out'); });
+
+  // Pre-fetch GPS quietly
+  locate().catch(function(){});
+})();
+</script>
 {% endblock %}

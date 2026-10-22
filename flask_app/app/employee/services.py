@@ -22,7 +22,30 @@ def dubai_now_iso() -> str:
 
 
 def dubai_now_time() -> str:
-    return (datetime.now(timezone.utc) + timedelta(hours=4)).strftime("%H:%M")
+    """Dubai wall clock in 12-hour format, e.g. 8:45 AM."""
+    dt = datetime.now(timezone.utc) + timedelta(hours=4)
+    return dt.strftime("%I:%M %p").lstrip("0")
+
+
+def format_time_12h(value) -> str:
+    """Display HH:MM / HH:MM:SS / already-12h strings as 12-hour time."""
+    if value in (None, ""):
+        return "—"
+    s = str(value).strip()
+    if not s:
+        return "—"
+    upper = s.upper()
+    if "AM" in upper or "PM" in upper:
+        return upper.replace("A.M.", "AM").replace("P.M.", "PM")
+    try:
+        parts = s.split(":")
+        hour = int(parts[0])
+        minute = int(parts[1][:2])
+        ampm = "AM" if hour < 12 else "PM"
+        hour12 = hour % 12 or 12
+        return f"{hour12}:{minute:02d} {ampm}"
+    except Exception:
+        return s
 
 
 def dubai_yesterday() -> str:
@@ -274,17 +297,19 @@ def last_punch_summary(emp: Employee) -> dict:
     for r in records_for_employee(emp, "attendance"):
         d = r.data or {}
         if not last_in and d.get("timeIn"):
+            tin = format_time_12h(d.get("timeIn"))
             last_in = {
                 "date": d.get("date") or "",
-                "time": d.get("timeIn") or "",
-                "label": f"{d.get('timeIn')} · {d.get('date') or ''}".strip(" ·"),
+                "time": tin,
+                "label": f"{tin} · {d.get('date') or ''}".strip(" ·"),
             }
         if not last_out and d.get("timeOut"):
             out_date = d.get("timeOutDate") or d.get("date") or ""
+            tout = format_time_12h(d.get("timeOut"))
             last_out = {
                 "date": out_date,
-                "time": d.get("timeOut") or "",
-                "label": f"{d.get('timeOut')} · {out_date}".strip(" ·"),
+                "time": tout,
+                "label": f"{tout} · {out_date}".strip(" ·"),
             }
         if last_in and last_out:
             break
@@ -616,11 +641,40 @@ def today_attendance_record(emp: Employee) -> HrRecord | None:
     return None
 
 
-def punch_attendance(emp: Employee, action: str) -> dict:
-    """Employee check-in / check-out → HrRecord(kind=attendance) for admin hub."""
+def _normalize_location(location) -> dict | None:
+    if not location or not isinstance(location, dict):
+        return None
+    try:
+        lat = float(location.get("latitude"))
+        lng = float(location.get("longitude"))
+    except (TypeError, ValueError):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return None
+    acc = location.get("accuracy")
+    try:
+        acc = float(acc) if acc is not None else None
+    except (TypeError, ValueError):
+        acc = None
+    return {
+        "latitude": round(lat, 6),
+        "longitude": round(lng, 6),
+        "accuracy": round(acc, 1) if acc is not None else None,
+        "timestamp": location.get("timestamp") or dubai_now_iso(),
+    }
+
+
+def punch_attendance(emp: Employee, action: str, extras: dict | None = None) -> dict:
+    """Employee check-in / check-out → HrRecord(kind=attendance) for admin hub.
+
+    ``extras`` may include ``location`` (dict) and ``selfie`` (stored path).
+    """
     action = (action or "").strip().lower()
     if action not in {"in", "out"}:
         raise ValueError("Unknown punch action.")
+    extras = extras or {}
+    location = _normalize_location(extras.get("location"))
+    selfie_path = (extras.get("selfie") or "").strip() or None
 
     today = dubai_today()
     now_iso = dubai_now_iso()
@@ -645,6 +699,10 @@ def punch_attendance(emp: Employee, action: str) -> dict:
             raise ValueError("Already checked in. Check out first.")
         if old and old.get("timeIn") and (old.get("date") or "") == today:
             raise ValueError("Already checked in today.")
+        if not location:
+            raise ValueError("Location is required for check-in. Allow GPS and try again.")
+        if not selfie_path:
+            raise ValueError("Take a selfie before checking in.")
         punch_date = today
         data = {
             "employee": str(emp.id),
@@ -654,8 +712,10 @@ def punch_attendance(emp: Employee, action: str) -> dict:
             "timeOutDate": "",
             "method": "Mobile (GPS)",
             "status": "Present",
-            "notes": "Employee portal check-in.",
+            "notes": "Employee portal check-in with selfie and GPS.",
             "checkInAt": now_iso,
+            "checkInLocation": location,
+            "checkInSelfie": selfie_path,
         }
         if current and (old or {}).get("date") == today and not (old or {}).get("timeIn"):
             current.data = {**(old or {}), **data}
@@ -671,6 +731,10 @@ def punch_attendance(emp: Employee, action: str) -> dict:
         raise ValueError("Check in first.")
     if old.get("timeOut"):
         raise ValueError("Already checked out.")
+    if not location:
+        raise ValueError("Location is required for check-out. Allow GPS and try again.")
+    if not selfie_path:
+        raise ValueError("Take a selfie before checking out.")
     data = {
         **old,
         "employee": str(emp.id),
@@ -679,7 +743,9 @@ def punch_attendance(emp: Employee, action: str) -> dict:
         "method": old.get("method") or "Mobile (GPS)",
         "status": old.get("status") or "Present",
         "checkOutAt": now_iso,
-        "notes": old.get("notes") or "Employee portal check-out.",
+        "checkOutLocation": location,
+        "checkOutSelfie": selfie_path,
+        "notes": old.get("notes") or "Employee portal check-out with selfie and GPS.",
     }
     if current:
         current.data = data

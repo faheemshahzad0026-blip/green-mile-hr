@@ -143,7 +143,7 @@ MODULES = {
     "attendance": {
         "title": "Attendance",
         "description": "Daily attendance, manual corrections and device imports.",
-        "columns": ["employee", "date", "timeIn", "timeOut", "method", "status"],
+        "columns": ["employee", "date", "timeIn", "timeOut", "method", "location", "selfie", "status"],
         "fields": [
             employee, date,
             f("timeIn", "Time in (Dubai)", "time"),

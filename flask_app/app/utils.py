@@ -189,3 +189,30 @@ def save_employee_document_file(file_storage, agency_id: int, employee_key: str)
     dest = dest_dir / dest_name
     file_storage.save(dest)
     return f"uploads/{agency_id}/docs/{employee_key}/{dest_name}"
+
+
+def save_attendance_selfie(file_storage, agency_id: int, employee_id, action: str) -> str:
+    """Store punch selfie under uploads/{agency}/selfies/{employee}/…"""
+    from datetime import datetime, timedelta, timezone
+
+    if not file_storage or not getattr(file_storage, "filename", None):
+        raise ValueError("Selfie image is required.")
+    filename = secure_filename(file_storage.filename) or "selfie.jpg"
+    ext = Path(filename).suffix.lower() or ".jpg"
+    if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise ValueError("Selfie must be JPG, PNG or WEBP.")
+    day = (datetime.now(timezone.utc) + timedelta(hours=4)).strftime("%Y-%m-%d")
+    upload_root = Path(current_app.config["UPLOAD_FOLDER"])
+    dest_dir = upload_root / str(agency_id) / "selfies" / str(employee_id)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_name = f"{day}-{action}-{secrets.token_hex(4)}{ext}"
+    dest = dest_dir / dest_name
+    file_storage.save(dest)
+    # Soft size check after save
+    if dest.stat().st_size > 900_000:
+        dest.unlink(missing_ok=True)
+        raise ValueError("Selfie is too large. Retake a clearer, smaller photo.")
+    if dest.stat().st_size < 800:
+        dest.unlink(missing_ok=True)
+        raise ValueError("Selfie looks empty. Retake the photo.")
+    return f"uploads/{agency_id}/selfies/{employee_id}/{dest_name}"

@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from app.employee.services import (
     employee_agency,
     employee_match_ids,
     employee_notifications,
+    format_time_12h,
     leave_overlap_exists,
     leave_quotas,
     mark_notification_read,
@@ -35,7 +37,31 @@ from app.employee.services import (
 )
 from app.extensions import db
 from app.models import HrRecord
-from app.utils import save_employee_document_file, write_audit
+from app.utils import save_attendance_selfie, save_employee_document_file, write_audit
+
+
+def _punch_extras_from_request():
+    """Parse GPS JSON + selfie file from form or JSON body."""
+    location = None
+    raw = request.form.get("location") or ""
+    if raw:
+        try:
+            location = json.loads(raw)
+        except Exception:
+            location = None
+    payload = request.get_json(silent=True) or {}
+    if location is None and isinstance(payload.get("location"), dict):
+        location = payload.get("location")
+    selfie_path = None
+    selfie_file = request.files.get("selfie")
+    if selfie_file and selfie_file.filename:
+        selfie_path = save_attendance_selfie(
+            selfie_file,
+            current_user.agency_id,
+            current_user.id,
+            (request.form.get("action") or payload.get("action") or "in").strip().lower(),
+        )
+    return {"location": location, "selfie": selfie_path}
 
 LEAVE_TYPES = [
     "Annual",
@@ -196,38 +222,41 @@ def shifts():
 def attendance():
     """Employee check-in / check-out — same HrRecord kind admin hub reads."""
     agency = employee_agency(current_user)
+    wants_json = (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or "application/json" in (request.accept_mimetypes.best or "")
+    )
     if request.method == "POST":
         action = (request.form.get("action") or "").strip().lower()
         try:
-            result = punch_attendance(current_user, action)
+            extras = _punch_extras_from_request()
+            result = punch_attendance(current_user, action, extras)
             write_audit(
                 f"emp_punch_{action}",
                 f"{current_user.employee_code} {result.get('record', {}).get('date')}",
                 agency_id=current_user.agency_id,
             )
             db.session.commit()
-            if action == "in":
-                flash(
-                    f"Checked in at {result['record'].get('timeIn')} (Dubai). HR can see this on Attendance.",
-                    "success",
+            msg = (
+                f"Checked in at {result['record'].get('timeIn')} (Dubai). Selfie and GPS saved for HR."
+                if action == "in"
+                else f"Checked out at {result['record'].get('timeOut')} (Dubai). Selfie and GPS saved for HR."
+            )
+            if wants_json:
+                return jsonify(
+                    {
+                        "ok": True,
+                        "message": msg,
+                        "date": dubai_today(),
+                        "attendance": result.get("record"),
+                    }
                 )
-            else:
-                flash(
-                    f"Checked out at {result['record'].get('timeOut')} (Dubai). Saved for HR.",
-                    "success",
-                )
+            flash(msg, "success")
         except ValueError as exc:
             db.session.rollback()
+            if wants_json:
+                return jsonify({"ok": False, "error": str(exc)}), 400
             flash(str(exc), "danger")
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json":
-            att = today_attendance_record(current_user)
-            return jsonify(
-                {
-                    "ok": True,
-                    "date": dubai_today(),
-                    "attendance": (att.data if att else None),
-                }
-            )
         return redirect(url_for("employee.attendance"))
 
     att = today_attendance_record(current_user)
@@ -252,6 +281,7 @@ def attendance():
         today=dubai_today(),
         now_time=dubai_now_time(),
         shift=current_shift(current_user),
+        format_time_12h=format_time_12h,
     )
 
 
@@ -259,7 +289,7 @@ def attendance():
 @login_required
 @employee_required
 def api_attendance():
-    """JSON punch API for portal / future APK (writes admin-visible attendance)."""
+    """JSON / multipart punch API for portal + APK (selfie + GPS)."""
     if request.method == "GET":
         att = today_attendance_record(current_user)
         d = (att.data if att else None) or None
@@ -267,7 +297,10 @@ def api_attendance():
     payload = request.get_json(silent=True) or {}
     action = (payload.get("action") or request.form.get("action") or "").strip().lower()
     try:
-        result = punch_attendance(current_user, action)
+        extras = _punch_extras_from_request()
+        if extras.get("location") is None and isinstance(payload.get("location"), dict):
+            extras["location"] = payload.get("location")
+        result = punch_attendance(current_user, action, extras)
         write_audit(
             f"emp_punch_{action}",
             f"{current_user.employee_code}",

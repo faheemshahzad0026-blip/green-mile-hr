@@ -77,6 +77,10 @@ def _employees_for_agency(agency_id):
 
 
 def _display(record, key, employees_map):
+    from markupsafe import Markup
+
+    from app.employee.services import format_time_12h
+
     val = record.get(key)
     if key == "employee":
         emp = employees_map.get(str(val)) or employees_map.get(val)
@@ -84,6 +88,35 @@ def _display(record, key, employees_map):
             return f"{emp.full_name} · {emp.employee_code}"
         # also try hr employee records
         return str(val or "—")
+    if key in {"timeIn", "timeOut", "start", "end"}:
+        return format_time_12h(val)
+    if key == "location":
+        loc = record.get("checkInLocation") or record.get("checkOutLocation")
+        if not isinstance(loc, dict):
+            return "—"
+        lat, lng = loc.get("latitude"), loc.get("longitude")
+        if lat is None or lng is None:
+            return "—"
+        acc = loc.get("accuracy")
+        label = f"{lat}, {lng}"
+        if acc is not None:
+            label += f" (±{int(acc)}m)"
+        maps = f"https://maps.google.com/?q={lat},{lng}"
+        kind = "In" if record.get("checkInLocation") else "Out"
+        if record.get("checkInLocation") and record.get("checkOutLocation"):
+            kind = "In/Out"
+        return Markup(
+            f'<a class="text-btn" href="{maps}" target="_blank" rel="noopener" title="{label}">{kind} GPS</a>'
+        )
+    if key == "selfie":
+        bits = []
+        for label, field in (("In", "checkInSelfie"), ("Out", "checkOutSelfie")):
+            path = record.get(field)
+            if path:
+                bits.append(
+                    f'<a class="text-btn" href="{url_for("static", filename=path)}" target="_blank" rel="noopener">{label}</a>'
+                )
+        return Markup(" · ".join(bits)) if bits else "—"
     if key == "status" and getattr(record, "kind", None) == "employees":
         # Normalize legacy employment statuses for the listing
         raw = str(val or "Active")

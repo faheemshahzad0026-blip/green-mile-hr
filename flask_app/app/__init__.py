@@ -58,6 +58,12 @@ def create_app(config_class=Config):
     app.register_blueprint(employee_bp)
     app.register_blueprint(modules_bp)
 
+    @app.template_filter("time12")
+    def time12_filter(value):
+        from app.employee.services import format_time_12h
+
+        return format_time_12h(value)
+
     @app.context_processor
     def inject_globals():
         from datetime import datetime, timedelta, timezone

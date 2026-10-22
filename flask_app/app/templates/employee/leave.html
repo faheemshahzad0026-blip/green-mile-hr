@@ -2,25 +2,30 @@
 {% block title %}Leave · Green Mile HR{% endblock %}
 {% block page_title %}Leave{% endblock %}
 {% block heading %}Leave{% endblock %}
-{% block description %}Anniversary-year annual balance (same rules as the old app). New requests start as Pending for HR.{% endblock %}
+{% block description %}Total leave pool is split 70% annual / 30% sick. New requests start as Pending for HR.{% endblock %}
 {% block heading_actions %}
 <button type="button" class="primary" onclick="openLeaveModal()">+ Apply for leave</button>
 {% endblock %}
 {% block content %}
 <div class="stats emp-quota-stats">
   <div class="stat">
+    <div class="stat-top"><span>Total leave</span></div>
+    <div class="stat-value">{{ quotas.total_quota or (quotas.annual_quota + quotas.sick_quota) }}</div>
+    <div class="stat-sub">{{ quotas.total_remaining or (quotas.annual_remaining + quotas.sick_remaining) }} left · 70% / 30%</div>
+  </div>
+  <div class="stat">
     <div class="stat-top"><span>Annual remaining</span></div>
     <div class="stat-value">{{ quotas.annual_remaining }}</div>
     <div class="stat-sub">
       {% if quotas.available %}
-        used {{ quotas.annual_used }} · booked {{ quotas.annual_booked }} · pending days {{ quotas.annual_pending }} / {{ quotas.annual_quota }}
+        used {{ quotas.annual_used }} · booked {{ quotas.annual_booked }} / {{ quotas.annual_quota }}
       {% else %}
         {{ quotas.message }}
       {% endif %}
     </div>
   </div>
   <div class="stat">
-    <div class="stat-top"><span>Sick unused</span></div>
+    <div class="stat-top"><span>Sick remaining</span></div>
     <div class="stat-value">{{ quotas.sick_remaining }}</div>
     <div class="stat-sub">{{ quotas.sick_used }} / {{ quotas.sick_quota }} used</div>
   </div>

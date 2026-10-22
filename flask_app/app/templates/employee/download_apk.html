@@ -2,17 +2,39 @@
 {% block title %}Download APK · Green Mile HR{% endblock %}
 {% block page_title %}Employee app access{% endblock %}
 {% block heading %}Employee app access{% endblock %}
-{% block description %}Install the Android WebView app. It opens this same website securely on the phone.{% endblock %}
+{% block description %}Install the Android app. Admins can upload a new APK package to the server for everyone to download.{% endblock %}
 {% block content %}
 <section class="card install-card">
   <div class="large-icon">⬇</div>
   <h2>Green Mile Attendance APK</h2>
-  <p>Use your normal login after install. Admin / staff / employees all use the same APK; menus depend on your role.</p>
+  <p>Use your normal login after install. Menus depend on your role.</p>
   {% if apk_ready %}
     <a class="primary" href="{{ url_for('employee.apk_file') }}">Download APK</a>
+    {% if apk_size %}<p class="install-note">Current package · {{ apk_size }}</p>{% endif %}
   {% else %}
-    <div class="alert info">APK file is not on the server yet. Place <strong>green-mile-attendance.apk</strong> in <code>flask_app/app/static/apk/</code> after building the Android app against your domain.</div>
+    <div class="alert info">No APK on the server yet.{% if can_upload %} Upload one below.{% else %} Ask HR to publish the Android package.{% endif %}</div>
   {% endif %}
-  <div class="install-note">Update the Android <code>BASE</code> URL to your HTTPS domain before building a release APK.</div>
 </section>
+
+{% if can_upload %}
+<section class="card" style="margin-top:18px;max-width:560px">
+  <div class="card-head">
+    <div>
+      <h2>Upload APK to server</h2>
+      <p>Replaces <code>green-mile-attendance.apk</code>. Employees download from this page.</p>
+    </div>
+  </div>
+  <form method="post" enctype="multipart/form-data" style="padding:0 22px 22px" data-full-nav="1">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="upload_apk">
+    <div class="form-grid" style="margin-bottom:14px">
+      <label style="grid-column:1/-1">
+        <span class="field-label">APK file <em>*</em></span>
+        <input type="file" name="apk" accept=".apk,application/vnd.android.package-archive" required>
+      </label>
+    </div>
+    <button class="primary" type="submit">Upload package</button>
+  </form>
+</section>
+{% endif %}
 {% endblock %}

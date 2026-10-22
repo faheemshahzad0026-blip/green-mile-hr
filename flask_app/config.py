@@ -20,7 +20,8 @@ class Config:
         "pool_recycle": 280,
     }
     WTF_CSRF_ENABLED = True
-    MAX_CONTENT_LENGTH = 5 * 1024 * 1024
+    # Docs stay small; APK uploads need headroom (override with MAX_UPLOAD_MB)
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_UPLOAD_MB", "80")) * 1024 * 1024
     UPLOAD_FOLDER = os.getenv(
         "UPLOAD_FOLDER",
         str(BASE_DIR / "app" / "static" / "uploads"),

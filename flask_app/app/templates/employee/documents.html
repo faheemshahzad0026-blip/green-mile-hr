@@ -2,20 +2,20 @@
 {% block title %}Documents · Green Mile HR{% endblock %}
 {% block page_title %}Documents{% endblock %}
 {% block heading %}My documents{% endblock %}
-{% block description %}Upload and manage your personal HR documents (PDF or image).{% endblock %}
+{% block description %}Upload documents for HR, and open files HR shared with you.{% endblock %}
 {% block heading_actions %}
 <button type="button" class="primary" onclick="openDocModal()">+ Upload document</button>
 {% endblock %}
 {% block content %}
 <section class="card table-card">
   <div class="card-head">
-    <div><h2>Stored documents</h2><p>Visible to you and HR. PDF, PNG, JPG, WEBP or GIF.</p></div>
+    <div><h2>Stored documents</h2><p>You and HR can both upload. HR files stay read-only for you.</p></div>
   </div>
   {% if documents %}
   <div class="table-scroll">
     <table>
       <thead>
-        <tr><th>TYPE</th><th>NUMBER</th><th>ISSUED</th><th>EXPIRY</th><th>STATUS</th><th>FILE</th><th></th></tr>
+        <tr><th>TYPE</th><th>NUMBER</th><th>ISSUED</th><th>EXPIRY</th><th>STATUS</th><th>BY</th><th>FILE</th><th></th></tr>
       </thead>
       <tbody>
         {% for d in documents %}
@@ -25,18 +25,23 @@
           <td>{{ d.get('issued') or '—' }}</td>
           <td>{{ d.get('expiry') or '—' }}</td>
           <td>{{ d.get('status') or '—' }}</td>
+          <td>{{ d.get('source') or '—' }}</td>
           <td>
             {% if d.get('filePath') %}
             <a class="text-btn" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank" rel="noopener">Open</a>
             {% else %}—{% endif %}
           </td>
           <td>
+            {% if (d.get('source') or 'Employee') == 'Employee' %}
             <form method="post" onsubmit="return confirm('Remove this document?');" style="display:inline">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="id" value="{{ d.id }}">
               <button class="text-btn danger" type="submit">Remove</button>
             </form>
+            {% else %}
+            <span class="soft-badge">HR</span>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

@@ -610,6 +610,7 @@ html.gm-loading{cursor:progress}
 /* —— Employee portal —— */
 .emp-quota-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
 .emp-dash-grid{display:grid;grid-template-columns:1.2fr .9fr;gap:18px;align-items:start}
+.emp-dash-cycle{margin:0 0 16px;font-size:13px;color:#5d7150}
 .emp-announce-list{list-style:none;margin:0;padding:0 22px 18px}
 .emp-announce-list li{padding:14px 0;border-top:1px solid #d5e2c8}
 .emp-announce-list li:first-child{border-top:0;padding-top:0}

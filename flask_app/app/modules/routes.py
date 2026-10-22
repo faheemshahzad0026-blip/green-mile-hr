@@ -263,6 +263,8 @@ def employee_profile(record_id):
                     "status": (request.form.get("status") or "Valid").strip(),
                     "filePath": path or "",
                     "notes": (request.form.get("notes") or "").strip(),
+                    "source": "HR",
+                    "uploadedBy": current_user.username or current_user.display_name,
                 }
                 if not doc["number"] and not path:
                     raise ValueError("Enter a document number or upload a file.")

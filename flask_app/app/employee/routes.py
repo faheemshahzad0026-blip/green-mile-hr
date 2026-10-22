@@ -18,6 +18,7 @@ from app.employee import bp
 from app.employee.services import (
     acknowledge_announcement,
     announcement_acks,
+    build_employee_dashboard,
     current_shift,
     dubai_now_time,
     dubai_today,
@@ -64,22 +65,13 @@ DOC_TYPES = [
 @employee_required
 def home():
     agency = employee_agency(current_user)
-    quotas = leave_quotas(current_user)
-    all_announcements = published_announcements(current_user)
-    shift = current_shift(current_user)
-    docs = records_for_employee(current_user, "documents")[:3]
-    unread = sum(1 for n in employee_notifications(current_user, limit=50) if not n.get("read"))
+    dash = build_employee_dashboard(current_user)
     return render_template(
         "employee/home.html",
         agency=agency,
         employee=current_user,
-        quotas=quotas,
-        announcements=all_announcements[:5],
-        acks=announcement_acks(current_user),
-        shift=shift,
-        shifts=[shift] if shift else [],
-        docs=docs,
-        unread_notifications=unread,
+        dash=dash,
+        quotas=dash["quotas"],
     )
 
 
@@ -335,6 +327,8 @@ def documents():
                 "status": (request.form.get("status") or "Valid").strip(),
                 "filePath": path or "",
                 "notes": (request.form.get("notes") or "").strip(),
+                "source": "Employee",
+                "uploadedBy": current_user.employee_code or str(current_user.id),
             }
             if doc["type"] not in DOC_TYPES:
                 doc["type"] = "Contract"
@@ -395,10 +389,67 @@ def api_notification_read():
     return jsonify({"ok": True, "unread": unread})
 
 
-@bp.route("/download-apk")
-def download_apk_page():
+def _apk_path() -> Path:
     apk_dir = Path(current_app.config["APK_FOLDER"])
-    apk_file = apk_dir / "green-mile-attendance.apk"
+    apk_dir.mkdir(parents=True, exist_ok=True)
+    return apk_dir / "green-mile-attendance.apk"
+
+
+def _can_upload_apk() -> bool:
+    if not current_user.is_authenticated:
+        return False
+    if getattr(current_user, "is_employee_account", False):
+        return False
+    return getattr(current_user, "role", None) in {
+        "super_admin",
+        "agency_admin",
+        "staff",
+    }
+
+
+def _apk_size_label(path: Path) -> str:
+    if not path.exists():
+        return ""
+    size = path.stat().st_size
+    if size >= 1024 * 1024:
+        return f"{size / (1024 * 1024):.1f} MB"
+    return f"{max(1, size // 1024)} KB"
+
+
+@bp.route("/download-apk", methods=["GET", "POST"])
+def download_apk_page():
+    apk_file = _apk_path()
+    can_upload = _can_upload_apk()
+
+    if request.method == "POST":
+        if not can_upload:
+            flash("Only HR admins can upload the APK.", "danger")
+            return redirect(url_for("employee.download_apk_page"))
+        if (request.form.get("action") or "") != "upload_apk":
+            flash("Unknown action.", "danger")
+            return redirect(url_for("employee.download_apk_page"))
+        file = request.files.get("apk")
+        if not file or not file.filename:
+            flash("Choose an .apk file to upload.", "danger")
+            return redirect(url_for("employee.download_apk_page"))
+        name = (file.filename or "").lower()
+        if not name.endswith(".apk"):
+            flash("Only .apk packages are allowed.", "danger")
+            return redirect(url_for("employee.download_apk_page"))
+        try:
+            file.save(apk_file)
+            write_audit(
+                "apk_upload",
+                f"Uploaded {apk_file.name} ({_apk_size_label(apk_file)})",
+                agency_id=getattr(current_user, "agency_id", None),
+            )
+            db.session.commit()
+            flash("APK uploaded. Employees can download it from this page.", "success")
+        except Exception as exc:
+            db.session.rollback()
+            flash(f"Could not save APK: {exc}", "danger")
+        return redirect(url_for("employee.download_apk_page"))
+
     if current_user.is_authenticated and getattr(current_user, "is_employee_account", False):
         layout_name = "layout_employee.html"
     elif current_user.is_authenticated:
@@ -407,20 +458,21 @@ def download_apk_page():
         return render_template(
             "employee/download_apk_public.html",
             apk_ready=apk_file.exists(),
+            apk_size=_apk_size_label(apk_file),
         )
     return render_template(
         "employee/download_apk.html",
         layout_name=layout_name,
         apk_ready=apk_file.exists(),
+        apk_size=_apk_size_label(apk_file),
+        can_upload=can_upload,
     )
 
 
 @bp.route("/apk-file")
 def apk_file():
-    apk_dir = Path(current_app.config["APK_FOLDER"])
-    filename = "green-mile-attendance.apk"
-    path = apk_dir / filename
+    path = _apk_path()
     if not path.exists():
-        flash("APK is not available yet. Place the signed APK on the server.", "warning")
+        flash("APK is not available yet. Ask HR to upload the package.", "warning")
         return redirect(url_for("employee.download_apk_page"))
-    return send_from_directory(apk_dir, filename, as_attachment=True)
+    return send_from_directory(path.parent, path.name, as_attachment=True)

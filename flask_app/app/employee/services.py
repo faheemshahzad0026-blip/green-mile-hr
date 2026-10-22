@@ -103,8 +103,36 @@ def _anniversary(joining: str, year: int) -> str:
         return (date(year, m + 1, 1) - timedelta(days=1)).isoformat()
 
 
+def _leave_pool_split(settings_data: dict | None) -> tuple[int, int, int]:
+    """Total leave pool split ~70% annual / ~30% sick.
+
+    ``annualLeave`` in company settings is the total entitlement.
+    Example: total 30 → 20 annual + 10 sick; total 100 → 70 + 30.
+    """
+    total = 30
+    sd = settings_data or {}
+    try:
+        if sd.get("totalLeave") not in (None, ""):
+            total = int(sd.get("totalLeave"))
+        elif sd.get("annualLeave") not in (None, ""):
+            total = int(sd.get("annualLeave"))
+    except Exception:
+        total = 30
+    total = max(1, total)
+    # Prefer exact 70/30 on multiples of 10; else nearest ints summing to total
+    annual = (total * 70) // 100
+    sick = total - annual
+    if sick < 1 and total > 1:
+        sick = 1
+        annual = total - 1
+    # Match common HR example 30 → 20 / 10 (still ~67/33 ≈ 70/30)
+    if total == 30:
+        annual, sick = 20, 10
+    return total, annual, sick
+
+
 def annual_leave_balance(emp: Employee, leaves: list | None = None) -> dict:
-    """Port of lib/leave-balance.ts — anniversary cycle, used/booked/pending."""
+    """Anniversary-cycle annual leave + calendar-year sick (70/30 of total pool)."""
     hr = hr_employee_record(emp)
     joining = str((hr.data or {}).get("joining") or "") if hr else ""
     current_day = dubai_today()
@@ -114,20 +142,7 @@ def annual_leave_balance(emp: Employee, leaves: list | None = None) -> dict:
         .order_by(HrRecord.id.desc())
         .first()
     )
-    allowance = 30
-    sick_quota = 15
-    if settings:
-        sd = settings.data or {}
-        try:
-            if sd.get("annualLeave") not in (None, ""):
-                allowance = int(sd.get("annualLeave"))
-        except Exception:
-            pass
-        try:
-            if sd.get("sickLeave") not in (None, ""):
-                sick_quota = int(sd.get("sickLeave"))
-        except Exception:
-            pass
+    total_quota, allowance, sick_quota = _leave_pool_split(settings.data if settings else None)
 
     if leaves is None:
         leaves = records_for_employee(emp, "leave")
@@ -149,6 +164,9 @@ def annual_leave_balance(emp: Employee, leaves: list | None = None) -> dict:
         return {
             "available": False,
             "message": "A valid joining date is required before this leave cycle starts. Ask HR to set it on your profile.",
+            "total_quota": total_quota,
+            "annual_ratio": 70,
+            "sick_ratio": 30,
             "annual_quota": allowance,
             "annual_used": 0,
             "annual_booked": 0,
@@ -159,6 +177,7 @@ def annual_leave_balance(emp: Employee, leaves: list | None = None) -> dict:
             "sick_remaining": max(sick_quota - sick_used, 0),
             "other_used": 0,
             "total_used": sick_used,
+            "total_remaining": allowance + max(sick_quota - sick_used, 0),
             "pending_count": sum(
                 1
                 for r in leaves
@@ -216,20 +235,26 @@ def annual_leave_balance(emp: Employee, leaves: list | None = None) -> dict:
             other_used += leave_day_count(d)
 
     committed = len(used) + len(booked)
+    annual_remaining = max(0, allowance - committed)
+    sick_remaining = max(sick_quota - sick_used, 0)
     return {
         "available": True,
         "message": "",
+        "total_quota": total_quota,
+        "annual_ratio": 70,
+        "sick_ratio": 30,
         "annual_quota": allowance,
         "annual_used": len(used),
         "annual_booked": len(booked),
         "annual_pending": len(pending),
-        "annual_remaining": max(0, allowance - committed),
+        "annual_remaining": annual_remaining,
         "overdrawn": max(0, committed - allowance),
         "sick_quota": sick_quota,
         "sick_used": sick_used,
-        "sick_remaining": max(sick_quota - sick_used, 0),
+        "sick_remaining": sick_remaining,
         "other_used": other_used,
         "total_used": len(used) + sick_used + other_used,
+        "total_remaining": annual_remaining + sick_remaining,
         "pending_count": pending_count,
         "cycle_start": start,
         "cycle_end": end,
@@ -240,6 +265,201 @@ def annual_leave_balance(emp: Employee, leaves: list | None = None) -> dict:
 def leave_quotas(emp: Employee) -> dict:
     """Alias used by routes — anniversary annual + sick."""
     return annual_leave_balance(emp)
+
+
+def last_punch_summary(emp: Employee) -> dict:
+    """Latest check-in and check-out for dashboard KPI."""
+    last_in = None
+    last_out = None
+    for r in records_for_employee(emp, "attendance"):
+        d = r.data or {}
+        if not last_in and d.get("timeIn"):
+            last_in = {
+                "date": d.get("date") or "",
+                "time": d.get("timeIn") or "",
+                "label": f"{d.get('timeIn')} · {d.get('date') or ''}".strip(" ·"),
+            }
+        if not last_out and d.get("timeOut"):
+            out_date = d.get("timeOutDate") or d.get("date") or ""
+            last_out = {
+                "date": out_date,
+                "time": d.get("timeOut") or "",
+                "label": f"{d.get('timeOut')} · {out_date}".strip(" ·"),
+            }
+        if last_in and last_out:
+            break
+    return {"last_in": last_in, "last_out": last_out}
+
+
+def build_employee_dashboard(emp: Employee) -> dict:
+    """Employee-only KPIs, 14-day line trend, and pie cards (Chart.js)."""
+    quotas = leave_quotas(emp)
+    punches = last_punch_summary(emp)
+    attendance_rows = records_for_employee(emp, "attendance")
+    leave_rows = records_for_employee(emp, "leave")
+
+    today = dubai_today()
+    today_d = datetime.strptime(today, "%Y-%m-%d").date()
+    days = 14
+    labels = []
+    checkins = []
+    checkouts = []
+    on_leave = []
+    att_by_date = {}
+    for r in attendance_rows:
+        d = r.data or {}
+        day = str(d.get("date") or "")
+        if not day:
+            continue
+        slot = att_by_date.setdefault(day, {"in": 0, "out": 0})
+        if d.get("timeIn"):
+            slot["in"] = 1
+        if d.get("timeOut"):
+            slot["out"] = 1
+
+    def on_leave_day(day: str) -> int:
+        for r in leave_rows:
+            d = r.data or {}
+            if (d.get("status") or "") != "Approved":
+                continue
+            frm, to = d.get("from") or "", d.get("to") or ""
+            if frm and to and frm <= day <= to:
+                return 1
+        return 0
+
+    for i in range(days - 1, -1, -1):
+        day = (today_d - timedelta(days=i)).isoformat()
+        labels.append(datetime.strptime(day, "%Y-%m-%d").strftime("%d %b"))
+        slot = att_by_date.get(day) or {"in": 0, "out": 0}
+        checkins.append(slot["in"])
+        checkouts.append(slot["out"])
+        on_leave.append(on_leave_day(day))
+
+    approved = sum(1 for r in leave_rows if (r.data or {}).get("status") == "Approved")
+    pending = sum(1 for r in leave_rows if (r.data or {}).get("status") == "Pending")
+    rejected = sum(1 for r in leave_rows if (r.data or {}).get("status") == "Rejected")
+
+    month_prefix = today[:7]
+    month_present = 0
+    month_incomplete = 0
+    for r in attendance_rows:
+        d = r.data or {}
+        if str(d.get("date") or "")[:7] != month_prefix:
+            continue
+        if d.get("timeIn") and d.get("timeOut"):
+            month_present += 1
+        elif d.get("timeIn"):
+            month_incomplete += 1
+
+    colors = {
+        "green": "#176344",
+        "blue": "#1a73e8",
+        "orange": "#e8710a",
+        "teal": "#12b5cb",
+        "gold": "#c9a227",
+        "red": "#c44b3c",
+        "muted": "#8aa07a",
+    }
+
+    def pie(card_id, title, subtitle, headline, headline_sub, rows):
+        chart_rows = list(rows)
+        series = [r[1] for r in chart_rows]
+        if not any(series):
+            chart_rows = [("None yet", 1, colors["muted"])]
+            series = [1]
+            details = [{"label": "None yet", "value": 0, "color": colors["muted"]}]
+        else:
+            details = [{"label": r[0], "value": r[1], "color": r[2]} for r in chart_rows]
+        return {
+            "id": card_id,
+            "title": title,
+            "subtitle": subtitle,
+            "headline": headline,
+            "headline_sub": headline_sub,
+            "details": details,
+            "labels": [r[0] for r in chart_rows],
+            "series": series,
+            "colors": [r[2] for r in chart_rows],
+        }
+
+    leave_pool_rows = [
+        ("Annual left", quotas.get("annual_remaining") or 0, colors["green"]),
+        ("Sick left", quotas.get("sick_remaining") or 0, colors["blue"]),
+        ("Used", quotas.get("total_used") or 0, colors["orange"]),
+    ]
+    leave_type_rows = [
+        ("Annual used", quotas.get("annual_used") or 0, colors["green"]),
+        ("Sick used", quotas.get("sick_used") or 0, colors["teal"]),
+        ("Other used", quotas.get("other_used") or 0, colors["gold"]),
+    ]
+    month_rows = [
+        ("Complete days", month_present, colors["green"]),
+        ("Open (no out)", month_incomplete, colors["orange"]),
+        ("On leave days (14d)", sum(on_leave), colors["teal"]),
+    ]
+    request_rows = [
+        ("Pending", pending, colors["orange"]),
+        ("Approved", approved, colors["green"]),
+        ("Rejected", rejected, colors["red"]),
+    ]
+
+    pie_cards = [
+        pie(
+            "empPieLeavePool",
+            "Leave balance",
+            f"Pool {quotas.get('total_quota') or 0} days · 70% annual / 30% sick",
+            quotas.get("total_remaining") or 0,
+            "days remaining",
+            leave_pool_rows,
+        ),
+        pie(
+            "empPieLeaveTypes",
+            "Leave used",
+            "Approved days this cycle / year",
+            quotas.get("total_used") or 0,
+            "days used",
+            leave_type_rows,
+        ),
+        pie(
+            "empPieAttendance",
+            "Attendance",
+            f"This month ({month_prefix})",
+            month_present,
+            "complete punch days",
+            month_rows,
+        ),
+        pie(
+            "empPieRequests",
+            "Leave requests",
+            "Your leave applications",
+            pending,
+            "pending with HR",
+            request_rows,
+        ),
+    ]
+
+    return {
+        "quotas": quotas,
+        "punches": punches,
+        "kpis": {
+            "total_leave": quotas.get("total_quota") or 0,
+            "total_remaining": quotas.get("total_remaining") or 0,
+            "annual_quota": quotas.get("annual_quota") or 0,
+            "annual_remaining": quotas.get("annual_remaining") or 0,
+            "sick_quota": quotas.get("sick_quota") or 0,
+            "sick_remaining": quotas.get("sick_remaining") or 0,
+            "last_in": (punches.get("last_in") or {}).get("label") or "—",
+            "last_out": (punches.get("last_out") or {}).get("label") or "—",
+        },
+        "trend": {
+            "labels": labels,
+            "checkins": checkins,
+            "checkouts": checkouts,
+            "on_leave": on_leave,
+            "range_label": f"Last {days} days · Dubai",
+        },
+        "pie_cards": pie_cards,
+    }
 
 
 def visible_announcement(d: dict, department: str, today: str | None = None) -> bool:

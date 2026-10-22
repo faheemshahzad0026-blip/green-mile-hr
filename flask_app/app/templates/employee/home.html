@@ -4,92 +4,223 @@
 {% block heading %}{{ employee.full_name }}{% endblock %}
 {% block description %}Employee ID {{ employee.employee_code }}{% if agency %} · {{ agency.company_name }}{% endif %}{% endblock %}
 {% block content %}
-<div class="stats emp-quota-stats">
-  <div class="stat">
-    <div class="stat-top"><span>Annual leave left</span></div>
-    <div class="stat-value">{{ quotas.annual_remaining }}</div>
-    <div class="stat-sub">
-      {% if quotas.available %}
-        used {{ quotas.annual_used }} · booked {{ quotas.annual_booked }} · of {{ quotas.annual_quota }}
-      {% else %}
-        {{ quotas.message or 'Set joining date with HR' }}
-      {% endif %}
-    </div>
+{% set k = dash.kpis %}
+{% set q = dash.quotas %}
+
+<div class="dash-kpis">
+  <div class="dash-kpi">
+    <span>Total leave</span>
+    <strong>{{ k.total_leave }}</strong>
+    <small>{{ k.total_remaining }} left · 70% / 30% split</small>
   </div>
-  <div class="stat">
-    <div class="stat-top"><span>Sick leave left</span></div>
-    <div class="stat-value">{{ quotas.sick_remaining }}</div>
-    <div class="stat-sub">of {{ quotas.sick_quota }} days · used {{ quotas.sick_used }}</div>
+  <div class="dash-kpi">
+    <span>Annual leave</span>
+    <strong>{{ k.annual_remaining }}</strong>
+    <small>of {{ k.annual_quota }} · 70% of pool</small>
   </div>
-  <div class="stat">
-    <div class="stat-top"><span>Pending leave</span></div>
-    <div class="stat-value">{{ quotas.pending_count }}</div>
-    <div class="stat-sub">{% if quotas.cycle_start %}Cycle {{ quotas.cycle_start }} → {{ quotas.cycle_end }}{% else %}awaiting HR{% endif %}</div>
+  <div class="dash-kpi">
+    <span>Sick leave</span>
+    <strong>{{ k.sick_remaining }}</strong>
+    <small>of {{ k.sick_quota }} · 30% of pool</small>
   </div>
-  <div class="stat">
-    <div class="stat-top"><span>Department</span></div>
-    <div class="stat-value" style="font-size:20px">{{ employee.department or '—' }}</div>
-    <div class="stat-sub">{{ employee.designation or '—' }}</div>
+  <div class="dash-kpi">
+    <span>Last check-in</span>
+    <strong style="font-size:18px">{{ k.last_in }}</strong>
+    <small>Dubai time</small>
+  </div>
+  <div class="dash-kpi">
+    <span>Last check-out</span>
+    <strong style="font-size:18px">{{ k.last_out }}</strong>
+    <small>Dubai time</small>
   </div>
 </div>
 
-<div class="emp-dash-grid">
-  <section class="card">
-    <div class="card-head">
-      <div>
-        <h2>HR announcements</h2>
-        <p>Published notices for you — acknowledge after reading.</p>
-      </div>
-      <a class="text-btn" href="{{ url_for('employee.announcements') }}">View all</a>
-    </div>
-    {% if announcements %}
-    <ul class="emp-announce-list">
-      {% for a in announcements %}
-      {% set rev = a.get('revision') or '' %}
-      {% set ack_key = a.id|string ~ ':' ~ rev %}
-      <li>
-        <strong>{{ a.get('title') or 'Notice' }}</strong>
-        <span>{{ a.get('date') or '' }}{% if acks is defined and acks.get(ack_key) %} · Acknowledged{% endif %}</span>
-        <p>{{ (a.get('body') or '')[:160] }}{% if (a.get('body') or '')|length > 160 %}…{% endif %}</p>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <div class="empty" style="padding:28px"><p>No announcements right now.</p></div>
-    {% endif %}
-  </section>
+{% if not q.available %}
+<div class="alert info" style="margin-bottom:18px">{{ q.message }}</div>
+{% elif q.cycle_start %}
+<p class="emp-dash-cycle">Leave cycle {{ q.cycle_start }} → {{ q.cycle_end }}{% if q.pending_count %} · {{ q.pending_count }} pending request{{ 's' if q.pending_count != 1 else '' }}{% endif %}</p>
+{% endif %}
 
-  <section class="card">
-    <div class="card-head">
-      <div>
-        <h2>Quick actions</h2>
-        <p>Leave, shifts and documents.</p>
+<section class="card dash-panel dash-ga-panel">
+  <div class="dash-ga-head">
+    <div>
+      <h2>Your activity</h2>
+      <p>{{ dash.trend.range_label }}</p>
+    </div>
+  </div>
+  <div class="dash-chart-wrap dash-ga-chart">
+    <canvas id="empTrendChart"></canvas>
+  </div>
+  <div class="dash-ga-legend" id="empGaMetrics">
+    <button type="button" class="dash-ga-legend-item active" data-series="0">
+      <span class="dash-ga-dot" style="background:#1a73e8"></span>
+      <span>Check-in</span>
+    </button>
+    <button type="button" class="dash-ga-legend-item active" data-series="1">
+      <span class="dash-ga-dot" style="background:#e8710a"></span>
+      <span>Check-out</span>
+    </button>
+    <button type="button" class="dash-ga-legend-item active" data-series="2">
+      <span class="dash-ga-dot" style="background:#12b5cb"></span>
+      <span>On leave</span>
+    </button>
+  </div>
+</section>
+
+<div class="dash-pie-grid">
+  {% for card in dash.pie_cards %}
+  <section class="card dash-pie-card">
+    <div class="dash-pie-card-inner">
+      <div class="dash-pie-detail">
+        <div class="dash-pie-detail-head">
+          <h2>{{ card.title }}</h2>
+          <p>{{ card.subtitle }}</p>
+        </div>
+        <div class="dash-pie-headline">
+          <strong>{{ card.headline }}</strong>
+          <span>{{ card.headline_sub }}</span>
+        </div>
+        <ul class="dash-pie-legend">
+          {% for row in card.details %}
+          <li>
+            <i style="background:{{ row.color }}"></i>
+            <span>{{ row.label }}</span>
+            <strong>{{ row.value }}</strong>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="dash-pie-chart">
+        <canvas id="{{ card.id }}"></canvas>
       </div>
     </div>
-    <div class="emp-quick-actions">
-      <a class="primary" href="{{ url_for('employee.attendance') }}">Attendance punch</a>
-      <a class="secondary" href="{{ url_for('employee.leave') }}">Apply leave</a>
-      <a class="secondary" href="{{ url_for('employee.shifts') }}">My shifts</a>
-      <a class="secondary" href="{{ url_for('employee.documents') }}">My documents</a>
-      <a class="secondary" href="{{ url_for('employee.announcements') }}">Announcements</a>
-    </div>
-    {% if shift %}
-    <div class="emp-mini-block">
-      <h3>Current shift</h3>
-      <p><strong>{{ shift.get('name') or 'Shift' }}</strong> · {{ shift.get('start') or '—' }} – {{ shift.get('end') or '—' }} · Rest {{ shift.get('restDay') or '—' }}</p>
-      <p style="margin-top:6px;font-size:12px;color:#5d7150">Effective {{ shift.get('effective') or '—' }}</p>
-    </div>
-    {% endif %}
-    {% if docs %}
-    <div class="emp-mini-block">
-      <h3>Recent documents</h3>
-      <ul>
-        {% for d in docs %}
-        <li>{{ d.get('type') or 'Document' }} · {{ d.get('status') or '—' }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
   </section>
+  {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+  const trendLabels={{ dash.trend.labels|tojson }};
+  const trendCheckins={{ dash.trend.checkins|tojson }};
+  const trendCheckouts={{ dash.trend.checkouts|tojson }};
+  const trendOnLeave={{ dash.trend.on_leave|tojson }};
+  const pieCards={{ dash.pie_cards|tojson }};
+
+  let tip=document.getElementById('dashChartTooltip');
+  if(!tip){
+    tip=document.createElement('div');
+    tip.id='dashChartTooltip';
+    tip.className='dash-chart-tooltip';
+    tip.style.opacity='0';
+    document.body.appendChild(tip);
+  }
+  function externalTooltip(context){
+    const {chart, tooltip}=context;
+    if(!tooltip || tooltip.opacity===0){ tip.style.opacity='0'; return; }
+    const title=(tooltip.title||[]).join(' ');
+    const lines=(tooltip.body||[]).map(function(b,i){
+      const lc=tooltip.labelColors&&tooltip.labelColors[i];
+      const color=(lc&&(lc.borderColor||lc.backgroundColor))||'#1a73e8';
+      return '<div class="dash-tt-line"><i style="background:'+color+'"></i><span>'+b.lines.join(' ')+'</span></div>';
+    });
+    tip.className='dash-chart-tooltip dash-ga-tooltip';
+    tip.innerHTML=(title?'<div class="dash-tt-title">'+title+'</div>':'')+lines.join('');
+    const rect=chart.canvas.getBoundingClientRect();
+    const x=rect.left+window.scrollX+tooltip.caretX;
+    const y=rect.top+window.scrollY+tooltip.caretY;
+    tip.style.opacity='1';
+    tip.style.left=Math.min(x+12, window.scrollX+window.innerWidth-tip.offsetWidth-12)+'px';
+    tip.style.top=Math.max(y-12, window.scrollY+8)+'px';
+  }
+  const tipOpts={enabled:false, external:externalTooltip};
+
+  function gaLine(label, data, color, fillUnder){
+    return {
+      label:label, data:data, fill:fillUnder?'origin':false, tension:.35,
+      borderColor:color,
+      backgroundColor:function(ctx){
+        if(!fillUnder) return 'transparent';
+        const chart=ctx.chart; const {ctx:c, chartArea}=chart;
+        if(!chartArea) return 'rgba(26,115,232,.12)';
+        const g=c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        g.addColorStop(0, color+'55'); g.addColorStop(0.55, color+'18'); g.addColorStop(1, color+'00');
+        return g;
+      },
+      pointRadius:0, pointHoverRadius:5, pointBackgroundColor:'#fff', pointBorderColor:color,
+      pointBorderWidth:2, borderWidth:2.5, borderCapStyle:'round', borderJoinStyle:'round'
+    };
+  }
+
+  const trendCtx=document.getElementById('empTrendChart');
+  let trendChart=null;
+  if(trendCtx){
+    const trendMax=Math.max(1, ...trendCheckins, ...trendCheckouts, ...trendOnLeave);
+    trendChart=new Chart(trendCtx,{
+      type:'line',
+      data:{
+        labels:trendLabels,
+        datasets:[
+          gaLine('Check-in', trendCheckins, '#1a73e8', true),
+          gaLine('Check-out', trendCheckouts, '#e8710a', false),
+          gaLine('On leave', trendOnLeave, '#12b5cb', false)
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index', intersect:false},
+        plugins:{legend:{display:false}, tooltip:{...tipOpts}},
+        scales:{
+          x:{border:{display:false}, grid:{display:false}, ticks:{color:'#5f6368', maxRotation:0}},
+          y:{beginAtZero:true, max:Math.max(2, trendMax), ticks:{precision:0, stepSize:1, color:'#5f6368'}, grid:{color:'rgba(60,64,67,.12)'}}
+        }
+      }
+    });
+    document.querySelectorAll('#empGaMetrics .dash-ga-legend-item').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const idx=Number(btn.getAttribute('data-series'));
+        if(!trendChart) return;
+        const meta=trendChart.getDatasetMeta(idx);
+        meta.hidden=!meta.hidden;
+        btn.classList.toggle('active', !meta.hidden);
+        trendChart.update();
+      });
+    });
+  }
+
+  pieCards.forEach(function(card){
+    const el=document.getElementById(card.id);
+    if(!el) return;
+    new Chart(el,{
+      type:'doughnut',
+      data:{
+        labels:card.labels,
+        datasets:[{data:card.series, backgroundColor:card.colors, borderWidth:2, borderColor:'#f3f8ec', hoverOffset:6}]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false, cutout:'64%',
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            ...tipOpts,
+            callbacks:{
+              title:function(items){ return items[0]?items[0].label:''; },
+              label:function(item){
+                const raw=Number(item.raw)||0;
+                const total=(item.dataset.data||[]).reduce((a,b)=>a+(Number(b)||0),0);
+                const pct=total?Math.round((raw/total)*100):0;
+                return raw+' ('+pct+'%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  });
+  document.addEventListener('scroll',function(){ tip.style.opacity='0'; }, true);
+})();
+</script>
 {% endblock %}

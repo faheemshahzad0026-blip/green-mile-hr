@@ -357,88 +357,21 @@ def employee_profile(record_id):
                 flash(str(exc), "danger")
             return redirect(url_for("modules.employee_profile", record_id=record.id, _anchor="documents"))
 
-        if action == "add_leave":
-            flash("Leave can only be applied by the employee from their portal.", "warning")
-            return redirect(url_for("modules.employee_profile", record_id=record.id, _anchor="leave"))
-
-        if action in {"reset_pin", "toggle_app", "set_pin"}:
-            if not auth_emp:
-                flash("Create/save the employee first so an app login exists.", "danger")
-                return redirect(url_for("modules.employee_profile", record_id=record.id))
-            if action == "toggle_app":
-                auth_emp.is_active = not auth_emp.is_active
-                write_audit(
-                    "app_access_toggle",
-                    f"{auth_emp.employee_code} active={auth_emp.is_active}",
-                    agency_id=agency.id,
-                )
-                db.session.commit()
-                flash(
-                    "App access allowed." if auth_emp.is_active else "App access blocked.",
-                    "success",
-                )
-            elif action == "reset_pin":
-                import secrets
-
-                new_pin = f"{secrets.randbelow(1000000):06d}"
-                auth_emp.set_pin(new_pin)
-                session[f"reveal_pin_{record.id}"] = new_pin
-                write_audit("app_pin_reset", auth_emp.employee_code, agency_id=agency.id)
-                db.session.commit()
-                flash(f"New app PIN: {new_pin} (copy it now — it won’t be shown again).", "success")
-            elif action == "set_pin":
-                new_pin = (request.form.get("pin") or "").strip()
-                if not re.fullmatch(r"\d{6}", new_pin):
-                    flash("PIN must be exactly 6 digits.", "danger")
-                else:
-                    auth_emp.set_pin(new_pin)
-                    session[f"reveal_pin_{record.id}"] = new_pin
-                    write_audit("app_pin_set", auth_emp.employee_code, agency_id=agency.id)
-                    db.session.commit()
-                    flash(f"App PIN updated to {new_pin}.", "success")
-            return redirect(url_for("modules.employee_profile", record_id=record.id, _anchor="app-access"))
-
     def related(kind):
-        rows = HrRecord.query.filter_by(agency_id=agency.id, kind=kind).order_by(HrRecord.id.desc()).all()
+        rows = (
+            HrRecord.query.filter_by(agency_id=agency.id, kind=kind)
+            .order_by(HrRecord.id.desc())
+            .all()
+        )
         out = []
         for r in rows:
             ref = str((r.data or {}).get("employee") or "")
             if ref in emp_ids:
+                # Prefer .data via HrRecord.get for templates
                 out.append(r)
         return out
 
-    leave_rows = related("leave")
-    help_rows = related("helpDesk")
     docs = related("documents")
-    approved_leave_days = 0
-    for r in leave_rows:
-        if (r.data or {}).get("status") != "Approved":
-            continue
-        try:
-            frm = datetime.strptime((r.data or {}).get("from") or "", "%Y-%m-%d")
-            to = datetime.strptime((r.data or {}).get("to") or "", "%Y-%m-%d")
-            approved_leave_days += max((to - frm).days + 1, 0)
-        except Exception:
-            pass
-    annual = 30
-    settings = (
-        HrRecord.query.filter_by(agency_id=agency.id, kind="settings")
-        .order_by(HrRecord.id.desc())
-        .first()
-    )
-    if settings and (settings.data or {}).get("annualLeave"):
-        try:
-            annual = int(settings.data.get("annualLeave"))
-        except Exception:
-            pass
-
-    open_queries = sum(
-        1
-        for r in help_rows
-        if (r.data or {}).get("status") in {"Pending", "In progress"}
-    )
-
-    reveal_pin = session.pop(f"reveal_pin_{record.id}", None)
 
     return render_template(
         "modules/employee_profile.html",
@@ -447,13 +380,7 @@ def employee_profile(record_id):
         data=data,
         auth_emp=auth_emp,
         documents=docs,
-        leave_rows=leave_rows,
-        help_rows=help_rows,
-        leave_balance=max(annual - approved_leave_days, 0),
-        annual_leave=annual,
-        used_leave=approved_leave_days,
-        open_queries=open_queries,
-        reveal_pin=reveal_pin,
+        emp_key=emp_key,
     )
 
 

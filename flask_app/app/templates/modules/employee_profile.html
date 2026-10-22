@@ -1,58 +1,26 @@
 {% extends "layout_admin.html" %}
 {% block title %}{{ data.name or 'Employee' }} · Green Mile HR{% endblock %}
-{% block heading %}{{ data.name or 'Employee profile' }}{% endblock %}
-{% block description %}Employee ID {{ data.code or '—' }} · {{ data.designation or '—' }} · {{ data.department or '—' }}{% endblock %}
+{% block heading %}{{ data.name or 'Employee' }}{% endblock %}
+{% block description %}Employee profile · {{ agency.company_name }}{% endblock %}
 {% block heading_actions %}
-{% set emp_ref = (auth_emp.id if auth_emp else data.authEmployeeId or record.id) %}
-<div class="header-menu action-menu">
-  <button type="button" class="icon-action action-menu-btn" onclick="toggleHeaderMenu(this)" title="More actions" aria-label="More actions">⋮</button>
-  <div class="header-dropdown action-dropdown" style="width:300px;max-height:70vh;overflow:auto">
-    <a class="header-dropdown-row" href="#app-access"><strong>App access</strong></a>
-    <a class="header-dropdown-row" href="#leave"><strong>Leave</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='documents', employee=emp_ref) }}"><strong>Documents &amp; expiry</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='documentRenewals', employee=emp_ref) }}"><strong>Document renewals</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='letters', employee=emp_ref) }}"><strong>Letters &amp; certificates</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='certificateRequests', employee=emp_ref) }}"><strong>Certificate requests</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='helpDesk', employee=emp_ref) }}"><strong>HR help desk</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='resignations', employee=emp_ref) }}"><strong>Resignations &amp; clearance</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='finalSettlements', employee=emp_ref) }}"><strong>Final settlement (F&amp;F)</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='exitReport', employee=emp_ref) }}"><strong>Exit report</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='performance', employee=emp_ref) }}"><strong>Performance</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='disciplinary', employee=emp_ref) }}"><strong>Disciplinary</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='devices', employee=emp_ref) }}"><strong>Face &amp; fingerprint</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='gratuity') }}"><strong>End of service</strong></a>
-    <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='employees', edit=record.id) }}"><strong>Edit employee</strong><span>Opens editor on Employees</span></a>
-  </div>
-</div>
-<a class="secondary" href="{{ url_for('modules.module_list', kind='employees') }}">Back to employees</a>
+<button type="button" class="icon-action" title="Edit employee" aria-label="Edit employee" onclick="window.location.href='{{ url_for('modules.module_list', kind='employees', edit=record.id) }}'">✎</button>
+<a class="icon-action" href="{{ url_for('modules.module_list', kind='employees') }}" title="Back to employees" aria-label="Back to employees">←</a>
 {% endblock %}
 {% block content %}
 
-<div class="stats">
-  <div class="stat">
-    <div class="stat-top"><span>Status</span></div>
-    <div class="stat-value" style="font-size:22px">{{ data.status or '—' }}</div>
-  </div>
-  <div class="stat">
-    <div class="stat-top"><span>Leave balance</span></div>
-    <div class="stat-value">{{ leave_balance }}</div>
-    <div class="stat-sub">{{ used_leave }} used of {{ annual_leave }} annual days</div>
-  </div>
-  <div class="stat">
-    <div class="stat-top"><span>App access</span></div>
-    <div class="stat-value" style="font-size:20px">{% if auth_emp and auth_emp.is_active %}Allowed{% elif auth_emp %}Blocked{% else %}Not set{% endif %}</div>
-  </div>
-  <div class="stat">
-    <div class="stat-top"><span>Open queries</span></div>
-    <div class="stat-value">{{ open_queries }}</div>
-  </div>
-</div>
-
 <section class="card" style="margin-bottom:22px">
-  <div class="card-head"><div><h2>Employee details</h2><p>{{ agency.company_name }}</p></div></div>
+  <div class="card-head">
+    <div>
+      <h2>Employee details</h2>
+      <p>{{ data.code or '—' }} · {{ data.designation or '—' }} · {{ data.department or '—' }}</p>
+    </div>
+    <span class="soft-badge">{% if data.status %}{{ data.status }}{% else %}—{% endif %}</span>
+  </div>
   <div class="employee-file-profile">
     <div><span>Full name</span><strong>{{ data.name or '—' }}</strong></div>
     <div><span>Employee ID</span><strong>{{ data.code or '—' }}</strong></div>
+    <div><span>Designation</span><strong>{{ data.designation or '—' }}</strong></div>
+    <div><span>Department</span><strong>{{ data.department or '—' }}</strong></div>
     <div><span>Mobile</span><strong>{{ data.phone or '—' }}</strong></div>
     <div><span>Email</span><strong>{{ data.email or '—' }}</strong></div>
     <div><span>Joining</span><strong>{{ data.joining or '—' }}</strong></div>
@@ -60,170 +28,60 @@
     <div><span>Contract</span><strong>{{ data.contract or '—' }}</strong></div>
     <div><span>Nationality</span><strong>{{ data.nationality or '—' }}</strong></div>
     <div><span>Manager</span><strong>{{ data.manager or '—' }}</strong></div>
+    <div><span>Status</span><strong>{{ data.status or '—' }}</strong></div>
   </div>
 </section>
 
-<section class="card" id="app-access" style="margin-bottom:22px">
+<section class="card" id="documents">
   <div class="card-head">
     <div>
-      <h2>App access</h2>
-      <p>Employee signs in on web/APK with ID + 6-digit PIN. PINs are stored hashed — only newly set PINs can be shown.</p>
+      <h2>Documents</h2>
+      <p>Uploaded by the employee or by HR</p>
     </div>
-    <span class="soft-badge {% if auth_emp and auth_emp.is_active %}{% else %}amber{% endif %}">
-      {% if auth_emp and auth_emp.is_active %}Allowed{% elif auth_emp %}Blocked{% else %}No login{% endif %}
-    </span>
+    <button type="button" class="icon-action" onclick="openProfileDocModal()" title="Upload document" aria-label="Upload document">＋</button>
   </div>
-  <div class="employee-file-profile">
-    <div><span>Employee ID</span><strong>{{ data.code or '—' }}</strong></div>
-    <div><span>Current PIN</span><strong>{% if reveal_pin %}{{ reveal_pin }}{% else %}•••••• (hidden){% endif %}</strong></div>
-    <div><span>App login</span><strong>{% if auth_emp and auth_emp.is_active %}Allowed{% elif auth_emp %}Not allowed{% else %}Not created{% endif %}</strong></div>
-  </div>
-  {% if reveal_pin %}
-  <div class="alert success" style="margin:0 22px 18px">Copy this PIN now: <strong>{{ reveal_pin }}</strong></div>
-  {% endif %}
-  <div class="modal-foot" style="position:static;box-shadow:none;justify-content:flex-start;gap:10px;flex-wrap:wrap;padding:0 22px 22px">
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="toggle_app">
-      <button class="primary" type="submit" {% if not auth_emp %}disabled{% endif %}>
-        {% if auth_emp and auth_emp.is_active %}Block app access{% else %}Allow app access{% endif %}
-      </button>
-    </form>
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="reset_pin">
-      <button class="secondary" type="submit" {% if not auth_emp %}disabled{% endif %}>Generate new PIN</button>
-    </form>
-    <button type="button" class="secondary" onclick="openSetPinModal()" {% if not auth_emp %}disabled{% endif %}>Set PIN…</button>
-    <a class="text-btn" href="{{ url_for('employee.download_apk_page') }}">Download APK page</a>
-  </div>
-</section>
-
-<section class="card" id="documents" style="margin-bottom:22px">
-  <div class="card-head">
-    <div><h2>Documents</h2><p>Upload and track documents for this employee here.</p></div>
-    <button type="button" class="primary" onclick="openProfileDocModal()">+ Upload</button>
-  </div>
+  {% if documents %}
   <div class="table-scroll">
     <table>
-      <thead><tr><th>TYPE</th><th>NUMBER</th><th>EXPIRY</th><th>STATUS</th><th>FILE</th></tr></thead>
+      <thead>
+        <tr>
+          <th>TYPE</th>
+          <th>NUMBER</th>
+          <th>ISSUED</th>
+          <th>EXPIRY</th>
+          <th>STATUS</th>
+          <th>SOURCE</th>
+          <th>FILE</th>
+        </tr>
+      </thead>
       <tbody>
       {% for d in documents %}
         <tr>
-          <td><strong>{{ d.get('type') }}</strong></td>
+          <td><strong>{{ d.get('type') or '—' }}</strong></td>
           <td>{{ d.get('number') or '—' }}</td>
+          <td>{{ d.get('issued') or '—' }}</td>
           <td>{{ d.get('expiry') or '—' }}</td>
           <td><span class="badge">{{ d.get('status') or '—' }}</span></td>
+          <td>{{ d.get('source') or 'HR' }}</td>
           <td>
             {% if d.get('filePath') %}
-              <a class="icon-action" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank" title="Open file" aria-label="Open file">↗</a>
+            <a class="icon-action" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank" rel="noopener" title="Open file" aria-label="Open file">↗</a>
             {% else %}—{% endif %}
           </td>
         </tr>
-      {% else %}
-        <tr><td colspan="5">No documents yet. <button type="button" class="text-btn" onclick="openProfileDocModal()">Upload</button></td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
+  <div class="table-bottom"><span>{{ documents|length }} document(s)</span></div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">◇</div>
+    <h3>No documents yet</h3>
+    <p>Upload from here, or the employee can upload from their portal.</p>
+  </div>
+  {% endif %}
 </section>
-
-<section class="card" id="leave" style="margin-bottom:22px">
-  <div class="card-head">
-    <div><h2>Leave</h2><p>Balance {{ leave_balance }} day(s) remaining · {{ used_leave }} used of {{ annual_leave }} · employees apply from their portal</p></div>
-    <a class="secondary" href="{{ url_for('modules.module_list', kind='leave', employee=emp_key) }}">Full leave history</a>
-  </div>
-  <div class="table-scroll">
-    <table>
-      <thead><tr><th>TYPE</th><th>FROM</th><th>TO</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
-      <tbody>
-      {% for r in leave_rows %}
-        <tr>
-          <td><strong>{{ r.get('type') }}</strong></td>
-          <td>{{ r.get('from') }}</td>
-          <td>{{ r.get('to') }}</td>
-          <td><span class="badge {% if r.get('status')=='Pending' %}amber{% endif %}">{{ r.get('status') }}</span></td>
-          <td class="leave-review-actions">
-            {% if r.get('status') == 'Pending' %}
-            <form method="post" action="{{ url_for('modules.module_list', kind='leave', employee=emp_key) }}" class="icon-action-form" style="display:inline">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="action" value="Approved">
-              <input type="hidden" name="id" value="{{ r.id }}">
-              <input type="hidden" name="employee" value="{{ emp_key }}">
-              <button type="submit" class="icon-action leave-approve" title="Approve" aria-label="Approve">✓</button>
-            </form>
-            <form method="post" action="{{ url_for('modules.module_list', kind='leave', employee=emp_key) }}" class="icon-action-form" style="display:inline" onsubmit="return confirm('Reject this leave request?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="action" value="Rejected">
-              <input type="hidden" name="id" value="{{ r.id }}">
-              <input type="hidden" name="employee" value="{{ emp_key }}">
-              <button type="submit" class="icon-action leave-reject" title="Reject" aria-label="Reject">✕</button>
-            </form>
-            {% else %}—{% endif %}
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="5">No leave requests for this employee yet.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card" id="queries">
-  <div class="card-head"><div><h2>Queries / help desk</h2><p>Employee requests linked to this profile</p></div></div>
-  <div class="table-scroll">
-    <table>
-      <thead><tr><th>DATE</th><th>CATEGORY</th><th>SUBJECT</th><th>STATUS</th><th></th></tr></thead>
-      <tbody>
-      {% for r in help_rows %}
-        <tr>
-          <td>{{ r.get('date') or '—' }}</td>
-          <td>{{ r.get('category') or '—' }}</td>
-          <td><strong>{{ r.get('subject') or '—' }}</strong></td>
-          <td><span class="badge {% if r.get('status') in ['Pending','In progress'] %}amber{% endif %}">{{ r.get('status') }}</span></td>
-          <td>
-            <div class="row-actions action-drop">
-              <a class="icon-action" href="{{ url_for('modules.module_list', kind='helpDesk', employee=emp_key, focus=r.id) }}" title="Open request" aria-label="Open request">↗</a>
-            </div>
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="5">No queries for this employee.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<div class="modal-backdrop" id="setPinModal" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="setPinTitle" style="width:min(480px,100%)">
-    <form method="post" id="setPinForm">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="set_pin">
-      <div class="modal-head">
-        <div>
-          <div class="eyebrow">APP ACCESS</div>
-          <h2 id="setPinTitle">Set PIN</h2>
-          <p>6-digit PIN for {{ data.name or 'employee' }}</p>
-        </div>
-        <button type="button" class="icon" onclick="closeSetPinModal()" aria-label="Close">✕</button>
-      </div>
-      <div class="form-body">
-        <div class="form-grid">
-          <label style="grid-column:1/-1">
-            <span class="field-label">New PIN<em> *</em></span>
-            <input name="pin" inputmode="numeric" maxlength="6" placeholder="e.g. 123456" required {% if not auth_emp %}disabled{% endif %}>
-          </label>
-        </div>
-      </div>
-      <div class="modal-foot">
-        <button type="button" class="secondary" onclick="closeSetPinModal()">Cancel</button>
-        <button class="primary" type="submit" {% if not auth_emp %}disabled{% endif %}>Save PIN</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <div class="modal-backdrop" id="profileDocModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileDocTitle">
@@ -242,7 +100,7 @@
         <div class="form-grid">
           <label><span class="field-label">Document type<em> *</em></span>
             <select name="type" required>
-              <option value="">e.g. Passport</option>
+              <option value="">Choose type</option>
               {% for t in ['Passport','Visa','Emirates ID','Labour card','Work permit','Insurance','Driving licence','Contract'] %}
               <option>{{ t }}</option>
               {% endfor %}
@@ -250,17 +108,21 @@
           </label>
           <label><span class="field-label">Document number</span><input name="number" placeholder="e.g. C12345678"></label>
           <label><span class="field-label">Status</span>
-            <select name="status"><option value="">e.g. Valid</option><option>Valid</option><option>Renewal pending</option><option>Expired</option></select>
+            <select name="status">
+              <option value="Valid">Valid</option>
+              <option>Renewal pending</option>
+              <option>Expired</option>
+            </select>
           </label>
           <label><span class="field-label">Issue date</span><input type="date" name="issued"></label>
           <label><span class="field-label">Expiry date</span><input type="date" name="expiry"></label>
           <label><span class="field-label">Upload file</span><input type="file" name="file" accept=".pdf,image/*"></label>
-          <label style="grid-column:1/-1"><span class="field-label">Notes</span><input name="notes" placeholder="e.g. Renewed at typing centre"></label>
+          <label style="grid-column:1/-1"><span class="field-label">Notes</span><input name="notes" placeholder="Optional notes"></label>
         </div>
       </div>
       <div class="modal-foot">
         <button type="button" class="secondary" onclick="closeProfileDocModal()">Cancel</button>
-        <button class="primary" type="submit">Upload / save document</button>
+        <button class="primary" type="submit">Save document</button>
       </div>
     </form>
   </div>
@@ -270,36 +132,28 @@
 {% block scripts %}
 {{ super() }}
 <script>
-function _openModal(id, formId, focusSel){
-  const modal=document.getElementById(id);
-  const form=formId?document.getElementById(formId):null;
+function openProfileDocModal(){
+  const modal=document.getElementById('profileDocModal');
+  const form=document.getElementById('profileDocForm');
   if(!modal) return;
   if(form) form.reset();
   modal.hidden=false;
   document.body.style.overflow='hidden';
   if(window.applyPlaceholders) window.applyPlaceholders(modal);
-  if(focusSel){
-    const first=modal.querySelector(focusSel);
-    if(first) setTimeout(()=>first.focus(),50);
-  }
+  const first=modal.querySelector('[name="type"]');
+  if(first) setTimeout(function(){ first.focus(); }, 50);
 }
-function _closeModal(id){
-  const modal=document.getElementById(id);
+function closeProfileDocModal(){
+  const modal=document.getElementById('profileDocModal');
   if(!modal) return;
   modal.hidden=true;
-  if(!document.querySelector('.modal-backdrop:not([hidden])')) document.body.style.overflow='';
+  document.body.style.overflow='';
 }
-function openSetPinModal(){ _openModal('setPinModal','setPinForm','[name="pin"]'); }
-function closeSetPinModal(){ _closeModal('setPinModal'); }
-function openProfileDocModal(){ _openModal('profileDocModal','profileDocForm','[name="type"]'); }
-function closeProfileDocModal(){ _closeModal('profileDocModal'); }
-document.addEventListener('click',function(e){
-  if(e.target.id==='setPinModal') closeSetPinModal();
+document.addEventListener('click', function(e){
   if(e.target.id==='profileDocModal') closeProfileDocModal();
 });
-document.addEventListener('keydown',function(e){
-  if(e.key!=='Escape') return;
-  closeSetPinModal(); closeProfileDocModal();
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape') closeProfileDocModal();
 });
 </script>
 {% endblock %}

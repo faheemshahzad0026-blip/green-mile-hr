@@ -5,14 +5,16 @@
     <a class="brand" href="{{ url_for('agency.dashboard') }}">
       <div class="brand-mark">
         {% if brand_agency and brand_agency.logo_path %}
-          <img src="{{ url_for('static', filename=brand_agency.logo_path) }}" alt="Agency logo">
+          <img src="{{ url_for('static', filename=brand_agency.logo_path) }}" alt="{{ brand_agency.company_name or brand_agency.name }} logo">
         {% else %}
           <img src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="Green Mile company logo">
         {% endif %}
       </div>
       <div class="company-brand">
-        <strong>{% if brand_agency %}{{ brand_agency.company_name }}{% else %}Green Mile<br>Recycling LLC{% endif %}</strong>
-        <span>HUMAN RESOURCES</span>
+        <strong title="{% if brand_agency %}{{ brand_agency.company_name or brand_agency.name }}{% else %}Green Mile Recycling LLC{% endif %}">
+          {% if brand_agency %}{{ brand_agency.company_name or brand_agency.name }}{% else %}Green Mile Recycling LLC{% endif %}
+        </strong>
+        <span>{% if brand_agency %}AGENCY WORKSPACE{% else %}HUMAN RESOURCES{% endif %}</span>
       </div>
     </a>
 
@@ -152,12 +154,24 @@
         </div>
 
         <div class="header-menu">
-          <button type="button" class="avatar header-user-btn header-menu-btn" aria-haspopup="true" onclick="toggleHeaderMenu(this)" title="{{ current_user.username or current_user.display_name }}">{{ current_user.initials }}</button>
+          <button type="button" class="header-user-trigger header-menu-btn" aria-haspopup="true" onclick="toggleHeaderMenu(this)" title="{{ current_user.username or current_user.display_name }}">
+            <span class="avatar header-user-btn">{{ current_user.initials }}</span>
+            <span class="header-user-name">{{ current_user.username or current_user.display_name }}</span>
+            <span class="period-caret" aria-hidden="true">▾</span>
+          </button>
           <div class="header-dropdown user-dropdown cool-dropdown">
             <div class="user-hero">
               <div class="avatar user-hero-avatar">{{ current_user.initials }}</div>
               <div class="user-hero-text">
                 <strong>{{ current_user.username or current_user.display_name }}</strong>
+                {% if current_user.full_name and current_user.full_name != current_user.username %}
+                <span>{{ current_user.full_name }}</span>
+                {% endif %}
+                <span>
+                  {% if current_user.is_super_admin %}Super Admin
+                  {% elif brand_agency %}{{ brand_agency.company_name or brand_agency.name }}
+                  {% else %}Agency Admin{% endif %}
+                </span>
               </div>
             </div>
             <div class="user-menu-links">

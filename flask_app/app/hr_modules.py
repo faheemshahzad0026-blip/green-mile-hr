@@ -294,7 +294,7 @@ MODULES = {
     "announcements": {
         "title": "HR announcements",
         "description": "Send a notice to all employees (or one department). Published messages appear as notifications on the employee portal and in the app.",
-        "columns": ["title", "date", "expiry", "audience", "status"],
+        "columns": ["title", "body", "date", "expiry", "audience", "status"],
         "fields": [
             f("title", "Notice title", "text", True),
             f("body", "Message", "textarea", True),

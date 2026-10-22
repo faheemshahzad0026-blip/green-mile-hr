@@ -205,8 +205,6 @@
           </div>
         {% endfor %}
       {% endwith %}
-      <div id="adminLiveToast" class="emp-live-toast" hidden role="status"></div>
-
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -215,6 +213,7 @@
 {% block scripts %}
 {{ super() }}
 <script>
+window.__gmNotifyHoldUntil=0;
 function toggleHeaderMenu(btn){
   const menu=btn.closest('.header-menu');
   const open=menu.classList.contains('open');
@@ -224,13 +223,16 @@ function toggleHeaderMenu(btn){
 if(!window.__gmAdminChromeBound){
   window.__gmAdminChromeBound=true;
   document.addEventListener('click',function(e){
-    if(!e.target.closest('.header-menu')) document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
+    if(e.target.closest('.header-menu')) return;
+    if(window.__gmNotifyHoldUntil && Date.now()<window.__gmNotifyHoldUntil) return;
+    document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
   });
 }
 (function adminNotifyLive(){
   var url={{ url_for('modules.api_notifications')|tojson }};
   var lastCount=Number({{ (notify_count if notify_count is defined else 0)|tojson }})||0;
   var seenKey='gmAdminNotifySeen';
+  var holdTimer=null;
   function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
   function setBadge(n){
     var b=document.getElementById('adminNotifyBadge');
@@ -252,13 +254,20 @@ if(!window.__gmAdminChromeBound){
         esc(it.title)+'</strong><small>'+esc(it.meta)+'</small></span></a>';
     }).join('');
   }
-  function toast(msg){
-    var el=document.getElementById('adminLiveToast');
-    if(!el) return;
-    el.hidden=false;
-    el.textContent=msg;
-    clearTimeout(el._t);
-    el._t=setTimeout(function(){el.hidden=true;},5500);
+  function openNotifyPanel(ms){
+    var btn=document.getElementById('adminNotifyBtn');
+    var menu=btn && btn.closest('.header-menu');
+    if(!menu) return;
+    document.querySelectorAll('.header-menu.open').forEach(function(m){ if(m!==menu) m.classList.remove('open'); });
+    menu.classList.add('open');
+    btn && btn.setAttribute('aria-expanded','true');
+    window.__gmNotifyHoldUntil=Date.now()+(ms||5000);
+    clearTimeout(holdTimer);
+    holdTimer=setTimeout(function(){
+      window.__gmNotifyHoldUntil=0;
+      menu.classList.remove('open');
+      btn && btn.setAttribute('aria-expanded','false');
+    }, ms||5000);
   }
   function poll(){
     fetch(url,{credentials:'same-origin',headers:{'Accept':'application/json'}})
@@ -271,8 +280,7 @@ if(!window.__gmAdminChromeBound){
         var ids=(data.items||[]).map(function(i){return i.id;}).join('|');
         var prev=localStorage.getItem(seenKey)||'';
         if(ids && ids!==prev && count>lastCount){
-          var first=(data.items&&data.items[0])||{};
-          toast((first.title||'New request')+' — tap the bell to open');
+          openNotifyPanel(5000);
         }
         if(ids) localStorage.setItem(seenKey, ids);
         lastCount=count;

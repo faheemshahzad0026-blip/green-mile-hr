@@ -117,7 +117,6 @@
           <div class="alert {% if category == 'danger' %}error{% else %}{{ category }}{% endif %}">{{ message }}</div>
         {% endfor %}
       {% endwith %}
-      <div id="empLiveToast" class="emp-live-toast" hidden role="status"></div>
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -127,6 +126,8 @@
   var url={{ url_for('employee.api_notifications')|tojson }};
   var lastCount=Number({{ (notify_count if notify_count is defined else 0)|tojson }})||0;
   var seenKey='gmEmpNotifySeen';
+  var holdTimer=null;
+  window.__gmNotifyHoldUntil=window.__gmNotifyHoldUntil||0;
   function setBadge(n){
     var b=document.getElementById('empNotifyBadge');
     var hero=document.getElementById('empNotifyHero');
@@ -149,6 +150,21 @@
         String(it.meta||it.message||'').replace(/</g,'&lt;')+'</small></span></a>';
     }).join('');
   }
+  function openNotifyPanel(ms){
+    var btn=document.getElementById('empNotifyBtn');
+    var menu=btn && btn.closest('.header-menu');
+    if(!menu) return;
+    document.querySelectorAll('.header-menu.open').forEach(function(m){ if(m!==menu) m.classList.remove('open'); });
+    menu.classList.add('open');
+    btn && btn.setAttribute('aria-expanded','true');
+    window.__gmNotifyHoldUntil=Date.now()+(ms||5000);
+    clearTimeout(holdTimer);
+    holdTimer=setTimeout(function(){
+      window.__gmNotifyHoldUntil=0;
+      menu.classList.remove('open');
+      btn && btn.setAttribute('aria-expanded','false');
+    }, ms||5000);
+  }
   document.addEventListener('click',function(e){
     var a=e.target.closest('[data-notify-key]');
     if(!a) return;
@@ -160,14 +176,6 @@
       body:JSON.stringify({key:key})
     }).catch(function(){});
   });
-  function toast(msg){
-    var el=document.getElementById('empLiveToast');
-    if(!el) return;
-    el.hidden=false;
-    el.textContent=msg;
-    clearTimeout(el._t);
-    el._t=setTimeout(function(){el.hidden=true;},5200);
-  }
   function poll(){
     fetch(url,{credentials:'same-origin',headers:{'Accept':'application/json'}})
       .then(function(r){return r.ok?r.json():null;})
@@ -179,8 +187,7 @@
         var ids=(data.items||[]).map(function(i){return i.id;}).join('|');
         var prev=localStorage.getItem(seenKey)||'';
         if(ids && ids!==prev && unread>lastCount){
-          var first=(data.items&&data.items[0])||{};
-          toast((first.title||'New HR update')+' — tap the bell to open');
+          openNotifyPanel(5000);
         }
         if(ids) localStorage.setItem(seenKey, ids);
         lastCount=unread;

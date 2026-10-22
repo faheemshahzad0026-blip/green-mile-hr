@@ -77,6 +77,19 @@ def _employees_for_agency(agency_id):
     return result
 
 
+def _clip_cell(text, limit=72):
+    """Plain text truncated for table cells; full text in native tooltip."""
+    from markupsafe import Markup, escape
+
+    raw = str(text or "").strip()
+    if not raw:
+        return "—"
+    short = raw if len(raw) <= limit else raw[: max(0, limit - 1)].rstrip() + "…"
+    if short == raw:
+        return Markup(f'<span class="cell-clip" title="{escape(raw)}">{escape(short)}</span>')
+    return Markup(f'<span class="cell-clip" title="{escape(raw)}">{escape(short)}</span>')
+
+
 def _display(record, key, employees_map):
     from markupsafe import Markup
 
@@ -89,6 +102,13 @@ def _display(record, key, employees_map):
             return f"{emp.full_name} · {emp.employee_code}"
         # also try hr employee records
         return str(val or "—")
+    if key in {"title", "body", "subject", "message", "reason", "notes"}:
+        return _clip_cell(val, 56 if key == "title" else 80)
+    if key == "audience":
+        aud = str(val or "All employees")
+        if aud == "Department" and record.get("department"):
+            return _clip_cell(f"Department · {record.get('department')}", 48)
+        return aud or "—"
     if key in {"timeIn", "timeOut", "start", "end"}:
         return format_time_12h(val)
     if key == "location":
@@ -329,33 +349,57 @@ def employee_profile(record_id):
 
     if request.method == "POST":
         action = request.form.get("action")
-        if action == "upload_document":
+        if action in {"upload_document", "update_document"}:
             try:
                 path = save_employee_document_file(
                     request.files.get("file"), agency.id, emp_key
                 )
-                doc = {
-                    "employee": str(auth_emp.id if auth_emp else record.id),
+                payload = {
                     "type": (request.form.get("type") or "Contract").strip(),
                     "number": (request.form.get("number") or "").strip(),
                     "issued": (request.form.get("issued") or "").strip(),
                     "expiry": (request.form.get("expiry") or "").strip(),
                     "status": (request.form.get("status") or "Valid").strip(),
-                    "filePath": path or "",
                     "notes": (request.form.get("notes") or "").strip(),
-                    "source": "HR",
-                    "uploadedBy": current_user.username or current_user.display_name,
                 }
-                if not doc["number"] and not path:
-                    raise ValueError("Enter a document number or upload a file.")
-                db.session.add(HrRecord(agency_id=agency.id, kind="documents", data=doc))
-                write_audit("doc_upload", f"employee {emp_key}", agency_id=agency.id)
-                db.session.commit()
-                flash("Document saved for this employee.", "success")
+                if action == "update_document":
+                    rid = int(request.form.get("id") or 0)
+                    doc_rec = HrRecord.query.filter_by(
+                        id=rid, agency_id=agency.id, kind="documents"
+                    ).first()
+                    if not doc_rec:
+                        raise ValueError("Document not found.")
+                    data = dict(doc_rec.data or {})
+                    data.update(payload)
+                    if path:
+                        data["filePath"] = path
+                    if not data.get("number") and not data.get("filePath"):
+                        raise ValueError("Enter a document number/title or upload a file.")
+                    data["uploadedBy"] = current_user.username or current_user.display_name
+                    doc_rec.data = data
+                    write_audit("doc_update", f"employee {emp_key} #{rid}", agency_id=agency.id)
+                    db.session.commit()
+                    flash("Document updated.", "success")
+                else:
+                    if not payload["number"] and not path:
+                        raise ValueError("Enter a document number/title or upload a file.")
+                    doc = {
+                        "employee": str(auth_emp.id if auth_emp else record.id),
+                        **payload,
+                        "filePath": path or "",
+                        "source": "HR",
+                        "uploadedBy": current_user.username or current_user.display_name,
+                    }
+                    db.session.add(HrRecord(agency_id=agency.id, kind="documents", data=doc))
+                    write_audit("doc_upload", f"employee {emp_key}", agency_id=agency.id)
+                    db.session.commit()
+                    flash("Document saved for this employee.", "success")
             except ValueError as exc:
                 db.session.rollback()
                 flash(str(exc), "danger")
-            return redirect(url_for("modules.employee_profile", record_id=record.id, _anchor="documents"))
+            return redirect(
+                url_for("modules.employee_profile", record_id=record.id, _anchor="documents")
+            )
 
     def related(kind):
         rows = (

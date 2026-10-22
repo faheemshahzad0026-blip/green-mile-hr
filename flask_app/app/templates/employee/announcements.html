@@ -2,47 +2,81 @@
 {% block title %}Announcements · Green Mile HR{% endblock %}
 {% block page_title %}Announcements{% endblock %}
 {% block heading %}Announcements{% endblock %}
-{% block description %}Notices published by HR. Acknowledge each notice after you read it (same as the old app).{% endblock %}
+{% block description %}Notices from HR. Acknowledge after you read each one.{% endblock %}
 {% block content %}
-{% if announcements %}
-<div class="emp-announce-feed">
-  {% for a in announcements %}
-  {% set rev = a.get('revision') or '' %}
-  {% set ack_key = a.id|string ~ ':' ~ rev %}
-  {% set acked = acks.get(ack_key) if acks is defined else None %}
-  <article class="card emp-announce-card">
-    <header>
-      <span class="eyebrow">{{ a.get('date') or 'Notice' }}{% if a.get('expiry') %} · until {{ a.get('expiry') }}{% endif %}</span>
-      <h2>{{ a.get('title') or 'Announcement' }}</h2>
-      {% if a.get('audience') == 'Department' and a.get('department') %}
-      <p class="emp-announce-meta">For {{ a.get('department') }}</p>
-      {% else %}
-      <p class="emp-announce-meta">All employees</p>
-      {% endif %}
-    </header>
-    <div class="emp-announce-body">{{ a.get('body') or '' }}</div>
-    <footer class="emp-announce-foot">
-      {% if acked %}
-      <span class="soft-badge">Acknowledged {{ acked[:16] }}</span>
-      {% else %}
-      <form method="post" style="display:inline">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="action" value="acknowledge">
-        <input type="hidden" name="id" value="{{ a.id }}">
-        <input type="hidden" name="revision" value="{{ rev }}">
-        <button class="primary" type="submit">Acknowledge</button>
-      </form>
-      {% endif %}
-    </footer>
-  </article>
-  {% endfor %}
-</div>
-{% else %}
-<section class="card">
+<section class="card table-card">
+  {% if announcements %}
+  <div class="table-scroll">
+    <table class="announce-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Title</th>
+          <th>Message</th>
+          <th>Audience</th>
+          <th>Status</th>
+          <th class="actions">ACTIONS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in announcements %}
+        {% set rev = a.get('revision') or '' %}
+        {% set ack_key = a.id|string ~ ':' ~ rev %}
+        {% set acked = acks.get(ack_key) if acks is defined else None %}
+        {% set title = a.get('title') or 'Announcement' %}
+        {% set body = a.get('body') or '' %}
+        <tr>
+          <td>
+            <strong>{{ a.get('date') or '—' }}</strong>
+            {% if a.get('expiry') %}<small class="cell-sub">Until {{ a.get('expiry') }}</small>{% endif %}
+          </td>
+          <td>
+            <span class="cell-clip" title="{{ title }}">{{ title }}</span>
+          </td>
+          <td>
+            <span class="cell-clip cell-clip-wide" title="{{ body }}">{{ body if body else '—' }}</span>
+          </td>
+          <td>
+            {% if a.get('audience') == 'Department' and a.get('department') %}
+            {{ a.get('department') }}
+            {% else %}
+            All employees
+            {% endif %}
+          </td>
+          <td>
+            {% if acked %}
+            <span class="badge status-present" title="Acknowledged {{ acked }}">Acked</span>
+            {% else %}
+            <span class="badge status-pending">Pending</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="row-actions action-drop">
+              {% if acked %}
+              <span class="icon-action" title="Acknowledged" aria-label="Acknowledged" style="opacity:.55;cursor:default">✓</span>
+              {% else %}
+              <form method="post" class="icon-action-form" title="Acknowledge">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="acknowledge">
+                <input type="hidden" name="id" value="{{ a.id }}">
+                <input type="hidden" name="revision" value="{{ rev }}">
+                <button class="icon-action leave-approve" type="submit" aria-label="Acknowledge">✓</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="table-bottom"><span>{{ announcements|length }} announcement(s)</span></div>
+  {% else %}
   <div class="empty">
+    <div class="empty-icon">◇</div>
     <h3>No announcements</h3>
     <p>When HR publishes a notice, it will show here and in your notification bell.</p>
   </div>
+  {% endif %}
 </section>
-{% endif %}
 {% endblock %}

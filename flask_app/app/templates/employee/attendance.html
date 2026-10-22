@@ -4,13 +4,11 @@
 {% block heading %}Time Sheet{% endblock %}
 {% block description %}Hours vs your HR shift. Check in / out opens the camera and needs Location.{% endblock %}
 {% block heading_actions %}
-{% if can_in %}
-<button type="button" class="primary" id="openPunchIn">Check in</button>
-{% endif %}
 {% if can_out %}
 <button type="button" class="primary" id="openPunchOut">Check out</button>
+{% elif can_in %}
+<button type="button" class="primary" id="openPunchIn">Check in</button>
 {% endif %}
-<button type="button" class="secondary" onclick="openLeaveModal()">+ Apply leave</button>
 {% endblock %}
 {% block content %}
 {% set d = (attendance.data if attendance else {}) or {} %}

@@ -410,14 +410,16 @@ def documents():
 
     if request.method == "POST":
         action = request.form.get("action") or "upload"
+        match = employee_match_ids(current_user)
         if action == "delete":
             rid = int(request.form.get("id") or 0)
-            match = employee_match_ids(current_user)
             rec = HrRecord.query.filter_by(
                 id=rid, agency_id=current_user.agency_id, kind="documents"
             ).first()
             if not rec or str((rec.data or {}).get("employee") or "") not in match:
                 flash("Document not found.", "danger")
+            elif (rec.data or {}).get("source") not in {None, "", "Employee"}:
+                flash("HR documents cannot be removed here.", "warning")
             else:
                 db.session.delete(rec)
                 write_audit(
@@ -433,30 +435,62 @@ def documents():
             path = save_employee_document_file(
                 request.files.get("file"), current_user.agency_id, emp_key
             )
-            doc = {
-                "employee": str(current_user.id),
-                "type": (request.form.get("type") or "Contract").strip(),
+            doc_type = (request.form.get("type") or "Contract").strip()
+            if doc_type not in DOC_TYPES:
+                doc_type = "Contract"
+            payload = {
+                "type": doc_type,
                 "number": (request.form.get("number") or "").strip(),
                 "issued": (request.form.get("issued") or "").strip(),
                 "expiry": (request.form.get("expiry") or "").strip(),
                 "status": (request.form.get("status") or "Valid").strip(),
-                "filePath": path or "",
                 "notes": (request.form.get("notes") or "").strip(),
-                "source": "Employee",
-                "uploadedBy": current_user.employee_code or str(current_user.id),
             }
-            if doc["type"] not in DOC_TYPES:
-                doc["type"] = "Contract"
-            if not doc["number"] and not path:
-                raise ValueError("Enter a document number or upload a file.")
-            db.session.add(HrRecord(agency_id=current_user.agency_id, kind="documents", data=doc))
-            write_audit(
-                "doc_upload_self",
-                f"{current_user.employee_code}",
-                agency_id=current_user.agency_id,
-            )
-            db.session.commit()
-            flash("Document saved.", "success")
+            if action == "update":
+                rid = int(request.form.get("id") or 0)
+                rec = HrRecord.query.filter_by(
+                    id=rid, agency_id=current_user.agency_id, kind="documents"
+                ).first()
+                if not rec or str((rec.data or {}).get("employee") or "") not in match:
+                    raise ValueError("Document not found.")
+                if (rec.data or {}).get("source") not in {None, "", "Employee"}:
+                    raise ValueError("HR documents cannot be edited here.")
+                data = dict(rec.data or {})
+                data.update(payload)
+                if path:
+                    data["filePath"] = path
+                if not data.get("number") and not data.get("filePath"):
+                    raise ValueError("Enter a document number/title or upload a file.")
+                data["source"] = "Employee"
+                data["uploadedBy"] = current_user.employee_code or str(current_user.id)
+                rec.data = data
+                write_audit(
+                    "doc_update_self",
+                    f"{current_user.employee_code} doc#{rid}",
+                    agency_id=current_user.agency_id,
+                )
+                db.session.commit()
+                flash("Document updated.", "success")
+            else:
+                if not payload["number"] and not path:
+                    raise ValueError("Enter a document number/title or upload a file.")
+                doc = {
+                    "employee": str(current_user.id),
+                    **payload,
+                    "filePath": path or "",
+                    "source": "Employee",
+                    "uploadedBy": current_user.employee_code or str(current_user.id),
+                }
+                db.session.add(
+                    HrRecord(agency_id=current_user.agency_id, kind="documents", data=doc)
+                )
+                write_audit(
+                    "doc_upload_self",
+                    f"{current_user.employee_code}",
+                    agency_id=current_user.agency_id,
+                )
+                db.session.commit()
+                flash("Document saved.", "success")
         except ValueError as exc:
             db.session.rollback()
             flash(str(exc), "danger")

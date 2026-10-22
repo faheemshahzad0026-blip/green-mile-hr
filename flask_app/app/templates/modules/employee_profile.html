@@ -32,13 +32,15 @@
   </div>
 </section>
 
-<section class="card" id="documents">
+<section class="card table-card" id="documents">
   <div class="card-head">
     <div>
       <h2>Documents</h2>
       <p>Uploaded by the employee or by HR</p>
     </div>
-    <button type="button" class="icon-action" onclick="openProfileDocModal()" title="Upload document" aria-label="Upload document">＋</button>
+    <button type="button" class="primary upload-doc-btn" onclick="openProfileDocModal()">
+      <span class="upload-ico" aria-hidden="true">⬆</span> Upload document
+    </button>
   </div>
   {% if documents %}
   <div class="table-scroll">
@@ -51,11 +53,16 @@
           <th>EXPIRY</th>
           <th>STATUS</th>
           <th>SOURCE</th>
-          <th>FILE</th>
+          <th>NOTES</th>
+          <th class="actions">ACTIONS</th>
         </tr>
       </thead>
       <tbody>
       {% for d in documents %}
+        {% set path = d.get('filePath') or '' %}
+        {% set file_url = url_for('static', filename=path) if path else '' %}
+        {% set is_pdf = path and path.lower().endswith('.pdf') %}
+        {% set is_img = path and (path.lower().endswith('.png') or path.lower().endswith('.jpg') or path.lower().endswith('.jpeg') or path.lower().endswith('.webp') or path.lower().endswith('.gif')) %}
         <tr>
           <td><strong>{{ d.get('type') or '—' }}</strong></td>
           <td>{{ d.get('number') or '—' }}</td>
@@ -63,10 +70,30 @@
           <td>{{ d.get('expiry') or '—' }}</td>
           <td><span class="badge">{{ d.get('status') or '—' }}</span></td>
           <td>{{ d.get('source') or 'HR' }}</td>
+          <td><span class="cell-clip" title="{{ d.get('notes') or '' }}">{{ d.get('notes') or '—' }}</span></td>
           <td>
-            {% if d.get('filePath') %}
-            <a class="icon-action" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank" rel="noopener" title="Open file" aria-label="Open file">↗</a>
-            {% else %}—{% endif %}
+            <div class="row-actions action-drop">
+              {% if path %}
+              <button type="button" class="icon-action" data-doc-preview
+                data-url="{{ file_url }}"
+                data-title="{{ d.get('type') or 'Document' }}"
+                data-meta="{{ d.get('number') or '' }} · {{ d.get('source') or 'HR' }}"
+                data-pdf="{{ '1' if is_pdf else '0' }}"
+                data-image="{{ '1' if is_img else '0' }}"
+                title="View" aria-label="View">👁</button>
+              {% endif %}
+              <button type="button" class="icon-action" title="Edit" aria-label="Edit"
+                data-doc-edit
+                data-id="{{ d.id }}"
+                data-type="{{ d.get('type') or '' }}"
+                data-number="{{ d.get('number') or '' }}"
+                data-issued="{{ d.get('issued') or '' }}"
+                data-expiry="{{ d.get('expiry') or '' }}"
+                data-status="{{ d.get('status') or 'Valid' }}"
+                data-notes="{{ d.get('notes') or '' }}"
+                data-file="{{ file_url }}"
+              >✎</button>
+            </div>
           </td>
         </tr>
       {% endfor %}
@@ -79,6 +106,9 @@
     <div class="empty-icon">◇</div>
     <h3>No documents yet</h3>
     <p>Upload from here, or the employee can upload from their portal.</p>
+    <button type="button" class="primary upload-doc-btn" onclick="openProfileDocModal()">
+      <span class="upload-ico" aria-hidden="true">⬆</span> Upload document
+    </button>
   </div>
   {% endif %}
 </section>
@@ -87,42 +117,43 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileDocTitle">
     <form method="post" enctype="multipart/form-data" id="profileDocForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="upload_document">
+      <input type="hidden" name="action" id="profileDocAction" value="upload_document">
+      <input type="hidden" name="id" id="profileDocId" value="">
       <div class="modal-head">
         <div>
           <div class="eyebrow">DOCUMENTS</div>
           <h2 id="profileDocTitle">Upload document</h2>
-          <p>{{ data.name or 'Employee' }}</p>
+          <p>{{ data.name or 'Employee' }} · PDF or image with crop / rotate / flip</p>
         </div>
         <button type="button" class="icon" onclick="closeProfileDocModal()" aria-label="Close">✕</button>
       </div>
       <div class="form-body">
         <div class="form-grid">
           <label><span class="field-label">Document type<em> *</em></span>
-            <select name="type" required>
+            <select name="type" id="profileDocType" required>
               <option value="">Choose type</option>
               {% for t in ['Passport','Visa','Emirates ID','Labour card','Work permit','Insurance','Driving licence','Contract'] %}
               <option>{{ t }}</option>
               {% endfor %}
             </select>
           </label>
-          <label><span class="field-label">Document number</span><input name="number" placeholder="e.g. C12345678"></label>
+          <label><span class="field-label">Document number / title</span><input name="number" id="profileDocNumber" placeholder="e.g. C12345678"></label>
           <label><span class="field-label">Status</span>
-            <select name="status">
+            <select name="status" id="profileDocStatus">
               <option value="Valid">Valid</option>
               <option>Renewal pending</option>
               <option>Expired</option>
             </select>
           </label>
-          <label><span class="field-label">Issue date</span><input type="date" name="issued"></label>
-          <label><span class="field-label">Expiry date</span><input type="date" name="expiry"></label>
-          <label><span class="field-label">Upload file</span><input type="file" name="file" accept=".pdf,image/*"></label>
-          <label style="grid-column:1/-1"><span class="field-label">Notes</span><input name="notes" placeholder="Optional notes"></label>
+          <label><span class="field-label">Issue date</span><input type="date" name="issued" id="profileDocIssued"></label>
+          <label><span class="field-label">Expiry date</span><input type="date" name="expiry" id="profileDocExpiry"></label>
+          <div data-doc-file data-name="file" id="profileDocFileHost" style="grid-column:1/-1"></div>
+          <label style="grid-column:1/-1"><span class="field-label">Notes</span><input name="notes" id="profileDocNotes" placeholder="Optional notes"></label>
         </div>
       </div>
       <div class="modal-foot">
         <button type="button" class="secondary" onclick="closeProfileDocModal()">Cancel</button>
-        <button class="primary" type="submit">Save document</button>
+        <button class="primary" type="submit" id="profileDocSubmit">Save document</button>
       </div>
     </form>
   </div>
@@ -132,16 +163,34 @@
 {% block scripts %}
 {{ super() }}
 <script>
-function openProfileDocModal(){
+function openProfileDocModal(edit){
   const modal=document.getElementById('profileDocModal');
   const form=document.getElementById('profileDocForm');
-  if(!modal) return;
-  if(form) form.reset();
+  if(!modal||!form) return;
+  form.reset();
+  document.getElementById('profileDocAction').value=edit?'update_document':'upload_document';
+  document.getElementById('profileDocId').value=edit?(edit.id||''):'';
+  document.getElementById('profileDocTitle').textContent=edit?'Edit document':'Upload document';
+  document.getElementById('profileDocSubmit').textContent=edit?'Save changes':'Save document';
+  if(edit){
+    document.getElementById('profileDocType').value=edit.type||'';
+    document.getElementById('profileDocNumber').value=edit.number||'';
+    document.getElementById('profileDocIssued').value=edit.issued||'';
+    document.getElementById('profileDocExpiry').value=edit.expiry||'';
+    document.getElementById('profileDocStatus').value=edit.status||'Valid';
+    document.getElementById('profileDocNotes').value=edit.notes||'';
+  }
+  const host=document.getElementById('profileDocFileHost');
+  if(host){
+    host.innerHTML='';
+    host.removeAttribute('data-doc-ready');
+    if(edit && edit.file) host.setAttribute('data-current', edit.file);
+    else host.removeAttribute('data-current');
+    if(window.DocViewer) window.DocViewer.init(modal);
+  }
   modal.hidden=false;
   document.body.style.overflow='hidden';
   if(window.applyPlaceholders) window.applyPlaceholders(modal);
-  const first=modal.querySelector('[name="type"]');
-  if(first) setTimeout(function(){ first.focus(); }, 50);
 }
 function closeProfileDocModal(){
   const modal=document.getElementById('profileDocModal');
@@ -149,11 +198,22 @@ function closeProfileDocModal(){
   modal.hidden=true;
   document.body.style.overflow='';
 }
-document.addEventListener('click', function(e){
+document.addEventListener('click',function(e){
   if(e.target.id==='profileDocModal') closeProfileDocModal();
+  const edit=e.target.closest('[data-doc-edit]');
+  if(edit){
+    openProfileDocModal({
+      id:edit.getAttribute('data-id'),
+      type:edit.getAttribute('data-type'),
+      number:edit.getAttribute('data-number'),
+      issued:edit.getAttribute('data-issued'),
+      expiry:edit.getAttribute('data-expiry'),
+      status:edit.getAttribute('data-status'),
+      notes:edit.getAttribute('data-notes'),
+      file:edit.getAttribute('data-file')
+    });
+  }
 });
-document.addEventListener('keydown', function(e){
-  if(e.key==='Escape') closeProfileDocModal();
-});
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeProfileDocModal(); });
 </script>
 {% endblock %}

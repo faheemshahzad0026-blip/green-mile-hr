@@ -2,58 +2,92 @@
 {% block title %}Documents · Green Mile HR{% endblock %}
 {% block page_title %}Documents{% endblock %}
 {% block heading %}My documents{% endblock %}
-{% block description %}Upload documents for HR, and open files HR shared with you.{% endblock %}
+{% block description %}Upload and manage your files. HR documents are view-only.{% endblock %}
 {% block heading_actions %}
-<button type="button" class="primary" onclick="openDocModal()">+ Upload document</button>
+<button type="button" class="primary upload-doc-btn" onclick="openDocModal()">
+  <span class="upload-ico" aria-hidden="true">⬆</span> Upload document
+</button>
 {% endblock %}
 {% block content %}
 <section class="card table-card">
-  <div class="card-head">
-    <div><h2>Stored documents</h2><p>You and HR can both upload. HR files stay read-only for you.</p></div>
-  </div>
   {% if documents %}
   <div class="table-scroll">
     <table>
       <thead>
-        <tr><th>TYPE</th><th>NUMBER</th><th>ISSUED</th><th>EXPIRY</th><th>STATUS</th><th>BY</th><th>FILE</th><th></th></tr>
+        <tr>
+          <th>TYPE</th>
+          <th>NUMBER</th>
+          <th>ISSUED</th>
+          <th>EXPIRY</th>
+          <th>STATUS</th>
+          <th>SOURCE</th>
+          <th>NOTES</th>
+          <th class="actions">ACTIONS</th>
+        </tr>
       </thead>
       <tbody>
         {% for d in documents %}
+        {% set path = d.get('filePath') or '' %}
+        {% set file_url = url_for('static', filename=path) if path else '' %}
+        {% set is_pdf = path and path.lower().endswith('.pdf') %}
+        {% set is_img = path and (path.lower().endswith('.png') or path.lower().endswith('.jpg') or path.lower().endswith('.jpeg') or path.lower().endswith('.webp') or path.lower().endswith('.gif')) %}
+        {% set own = (d.get('source') or 'Employee') == 'Employee' %}
         <tr>
           <td><strong>{{ d.get('type') or '—' }}</strong></td>
           <td>{{ d.get('number') or '—' }}</td>
           <td>{{ d.get('issued') or '—' }}</td>
           <td>{{ d.get('expiry') or '—' }}</td>
-          <td>{{ d.get('status') or '—' }}</td>
+          <td><span class="badge">{{ d.get('status') or '—' }}</span></td>
           <td>{{ d.get('source') or '—' }}</td>
+          <td><span class="cell-clip" title="{{ d.get('notes') or '' }}">{{ d.get('notes') or '—' }}</span></td>
           <td>
-            {% if d.get('filePath') %}
-            <a class="icon-action" href="{{ url_for('static', filename=d.get('filePath')) }}" target="_blank" rel="noopener" title="Open file" aria-label="Open file">↗</a>
-            {% else %}—{% endif %}
-          </td>
-          <td>
-            {% if (d.get('source') or 'Employee') == 'Employee' %}
-            <form method="post" class="icon-action-form" onsubmit="return confirm('Remove this document?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="action" value="delete">
-              <input type="hidden" name="id" value="{{ d.id }}">
-              <button class="icon-action danger" type="submit" title="Remove" aria-label="Remove">🗑</button>
-            </form>
-            {% else %}
-            <span class="soft-badge">HR</span>
-            {% endif %}
+            <div class="row-actions action-drop">
+              {% if path %}
+              <button type="button" class="icon-action" data-doc-preview
+                data-url="{{ file_url }}"
+                data-title="{{ d.get('type') or 'Document' }}"
+                data-meta="{{ d.get('number') or '' }} · {{ d.get('source') or '' }}"
+                data-pdf="{{ '1' if is_pdf else '0' }}"
+                data-image="{{ '1' if is_img else '0' }}"
+                title="View" aria-label="View">👁</button>
+              {% endif %}
+              {% if own %}
+              <button type="button" class="icon-action" title="Edit" aria-label="Edit"
+                data-doc-edit
+                data-id="{{ d.id }}"
+                data-type="{{ d.get('type') or '' }}"
+                data-number="{{ d.get('number') or '' }}"
+                data-issued="{{ d.get('issued') or '' }}"
+                data-expiry="{{ d.get('expiry') or '' }}"
+                data-status="{{ d.get('status') or 'Valid' }}"
+                data-notes="{{ d.get('notes') or '' }}"
+                data-file="{{ file_url }}"
+              >✎</button>
+              <form method="post" class="icon-action-form" onsubmit="return confirm('Remove this document?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" value="{{ d.id }}">
+                <button class="icon-action danger" type="submit" title="Remove" aria-label="Remove">🗑</button>
+              </form>
+              {% else %}
+              <span class="soft-badge">HR</span>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  <div class="table-bottom"><span>{{ documents|length }} document(s)</span></div>
   {% else %}
   <div class="empty">
     <div class="empty-icon">◇</div>
-    <h3>No documents uploaded yet</h3>
-    <p>Upload a PDF or image for HR to review.</p>
-    <button type="button" class="text-btn" onclick="openDocModal()">+ Upload document</button>
+    <h3>No documents yet</h3>
+    <p>Upload a PDF or photo for HR to review.</p>
+    <button type="button" class="primary upload-doc-btn" onclick="openDocModal()">
+      <span class="upload-ico" aria-hidden="true">⬆</span> Upload document
+    </button>
   </div>
   {% endif %}
 </section>
@@ -62,12 +96,13 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="docFormTitle">
     <form method="post" enctype="multipart/form-data" id="docForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="action" value="upload">
+      <input type="hidden" name="action" id="docFormAction" value="upload">
+      <input type="hidden" name="id" id="docFormId" value="">
       <div class="modal-head">
         <div>
           <div class="eyebrow">DOCUMENTS</div>
           <h2 id="docFormTitle">Upload document</h2>
-          <p>PDF, PNG, JPG, WEBP or GIF.</p>
+          <p>PDF or image. Photos can be cropped, rotated and flipped.</p>
         </div>
         <button type="button" class="icon" onclick="closeDocModal()" aria-label="Close">✕</button>
       </div>
@@ -75,37 +110,42 @@
         <div class="form-grid">
           <label>
             <span class="field-label">Document type<em> *</em></span>
-            <select name="type" required>
+            <select name="type" id="docType" required>
               {% for t in doc_types %}
               <option value="{{ t }}">{{ t }}</option>
               {% endfor %}
             </select>
           </label>
           <label>
-            <span class="field-label">Document number</span>
-            <input type="text" name="number" maxlength="120" placeholder="e.g. 784-…">
+            <span class="field-label">Document number / title</span>
+            <input type="text" name="number" id="docNumber" maxlength="120" placeholder="e.g. Passport no. or title">
           </label>
           <label>
             <span class="field-label">Issue date</span>
-            <input type="date" name="issued">
+            <input type="date" name="issued" id="docIssued">
           </label>
           <label>
             <span class="field-label">Expiry date</span>
-            <input type="date" name="expiry">
+            <input type="date" name="expiry" id="docExpiry">
           </label>
           <label>
-            <span class="field-label">File</span>
-            <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif">
+            <span class="field-label">Status</span>
+            <select name="status" id="docStatus">
+              <option value="Valid">Valid</option>
+              <option value="Renewal pending">Renewal pending</option>
+              <option value="Expired">Expired</option>
+            </select>
           </label>
+          <div data-doc-file data-name="file" id="docFileHost" style="grid-column:1/-1"></div>
           <label style="grid-column:1/-1">
             <span class="field-label">Notes</span>
-            <input type="text" name="notes" maxlength="400" placeholder="e.g. Renewed copy">
+            <input type="text" name="notes" id="docNotes" maxlength="400" placeholder="Optional notes">
           </label>
         </div>
       </div>
       <div class="modal-foot">
         <button type="button" class="secondary" onclick="closeDocModal()">Cancel</button>
-        <button class="primary" type="submit">Save document</button>
+        <button class="primary" type="submit" id="docFormSubmit">Save document</button>
       </div>
     </form>
   </div>
@@ -114,16 +154,34 @@
 {% block scripts %}
 {{ super() }}
 <script>
-function openDocModal(){
+function openDocModal(edit){
   const modal=document.getElementById('docFormModal');
   const form=document.getElementById('docForm');
   if(!modal||!form) return;
   form.reset();
+  document.getElementById('docFormAction').value=edit?'update':'upload';
+  document.getElementById('docFormId').value=edit?(edit.id||''):'';
+  document.getElementById('docFormTitle').textContent=edit?'Edit document':'Upload document';
+  document.getElementById('docFormSubmit').textContent=edit?'Save changes':'Save document';
+  if(edit){
+    document.getElementById('docType').value=edit.type||'Contract';
+    document.getElementById('docNumber').value=edit.number||'';
+    document.getElementById('docIssued').value=edit.issued||'';
+    document.getElementById('docExpiry').value=edit.expiry||'';
+    document.getElementById('docStatus').value=edit.status||'Valid';
+    document.getElementById('docNotes').value=edit.notes||'';
+  }
+  const host=document.getElementById('docFileHost');
+  if(host){
+    host.innerHTML='';
+    host.removeAttribute('data-doc-ready');
+    if(edit && edit.file) host.setAttribute('data-current', edit.file);
+    else host.removeAttribute('data-current');
+    if(window.DocViewer) window.DocViewer.init(modal);
+  }
   modal.hidden=false;
   document.body.style.overflow='hidden';
   if(window.applyPlaceholders) window.applyPlaceholders(modal);
-  const first=form.querySelector('[name="type"]');
-  if(first) setTimeout(()=>first.focus(),50);
 }
 function closeDocModal(){
   const modal=document.getElementById('docFormModal');
@@ -131,7 +189,22 @@ function closeDocModal(){
   modal.hidden=true;
   document.body.style.overflow='';
 }
-document.addEventListener('click',function(e){ if(e.target.id==='docFormModal') closeDocModal(); });
+document.addEventListener('click',function(e){
+  if(e.target.id==='docFormModal') closeDocModal();
+  const edit=e.target.closest('[data-doc-edit]');
+  if(edit){
+    openDocModal({
+      id:edit.getAttribute('data-id'),
+      type:edit.getAttribute('data-type'),
+      number:edit.getAttribute('data-number'),
+      issued:edit.getAttribute('data-issued'),
+      expiry:edit.getAttribute('data-expiry'),
+      status:edit.getAttribute('data-status'),
+      notes:edit.getAttribute('data-notes'),
+      file:edit.getAttribute('data-file')
+    });
+  }
+});
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeDocModal(); });
 </script>
 {% endblock %}

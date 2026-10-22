@@ -34,6 +34,7 @@
   <script src="{{ url_for('static', filename='js/app-shell.js') }}"></script>
   <script src="{{ url_for('static', filename='js/form-validate.js') }}"></script>
   <script src="{{ url_for('static', filename='js/logo-editor.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/doc-viewer.js') }}"></script>
   <script>
     function toggleSidebar(){document.getElementById('sidebar')?.classList.toggle('open');}
     function toggleHeaderMenu(btn){
@@ -46,7 +47,9 @@
     if(!window.__gmHeaderMenuBound){
       window.__gmHeaderMenuBound=true;
       document.addEventListener('click',function(e){
-        if(!e.target.closest('.header-menu')) document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
+        if(e.target.closest('.header-menu')) return;
+        if(window.__gmNotifyHoldUntil && Date.now()<window.__gmNotifyHoldUntil) return;
+        document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
       });
     }
   </script>

@@ -745,7 +745,9 @@ tr.row-focus{outline:2px solid #2f6fb5;outline-offset:-2px;background:#e8f1fb}
 .doc-file-preview img{max-width:100%;max-height:180px;object-fit:contain;display:block}
 .doc-file-empty{font-size:12px;color:#5f7754;text-align:center;padding:14px;line-height:1.4}
 .doc-file-btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.doc-preview-backdrop,.doc-edit-backdrop{z-index:85}
+.doc-preview-backdrop,.doc-edit-backdrop{z-index:5000}
+.doc-file-preview img[hidden]{display:none!important}
+.doc-file-preview img:not([hidden]){display:block!important;width:auto;height:auto;max-width:100%;max-height:180px;margin:0 auto}
 .doc-preview-modal{width:min(860px,96vw);max-height:min(92dvh,920px)}
 .doc-preview-body{
   min-height:280px;display:grid;place-items:center;background:#14291c;border-radius:12px;overflow:auto;

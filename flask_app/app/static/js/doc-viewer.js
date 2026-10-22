@@ -216,7 +216,10 @@
   function paint() {
     if (!editShell || !sourceImg) return;
     const img = editShell.querySelector("[data-doc-img]");
+    if (!img) return;
+    img.hidden = false;
     img.src = sourceImg.src;
+    img.style.display = "block";
     img.style.width = sourceImg.naturalWidth + "px";
     img.style.height = sourceImg.naturalHeight + "px";
     img.style.transform =
@@ -255,26 +258,40 @@
   function openEdit(host, url) {
     ensureEdit();
     activeHost = host;
+    // Ensure editor sits above any open form modal
+    editShell.style.zIndex = "5000";
+    editShell.hidden = false;
+    document.body.style.overflow = "hidden";
+    const stageImg = editShell.querySelector("[data-doc-img]");
+    if (stageImg) {
+      stageImg.removeAttribute("hidden");
+      stageImg.style.opacity = "0.35";
+    }
     const img = new Image();
     img.onload = () => {
       sourceImg = img;
       fitDefaults(img);
       paint();
-      editShell.hidden = false;
-      document.body.style.overflow = "hidden";
+      if (stageImg) stageImg.style.opacity = "1";
     };
     img.onerror = () => {
       window.alert("Could not load that image.");
-      activeHost = null;
+      closeEdit(true);
     };
     img.src = url;
   }
 
-  function closeEdit() {
+  function closeEdit(cancelled) {
+    const host = activeHost;
     if (!editShell) return;
     editShell.hidden = true;
     sourceImg = null;
     activeHost = null;
+    // Keep selected image visible in the form preview if user cancels adjust
+    if (cancelled && host) {
+      const pending = host._docObjectUrl || host.getAttribute("data-current") || "";
+      if (pending) setFilePreview(host, pending, !!host._docObjectUrl);
+    }
     if (!document.querySelector(".modal-backdrop:not([hidden])")) {
       document.body.style.overflow = "";
     }
@@ -282,6 +299,7 @@
 
   function applyEdit() {
     if (!activeHost || !sourceImg) return;
+    const host = activeHost;
     const canvas = document.createElement("canvas");
     const scale = OUT_W / STAGE_W;
     canvas.width = OUT_W;
@@ -298,8 +316,7 @@
     ctx.restore();
     canvas.toBlob(
       (blob) => {
-        if (!blob) return;
-        const host = activeHost;
+        if (!blob || !host) return;
         const file = new File([blob], "document.jpg", { type: "image/jpeg" });
         const input = host.querySelector('input[type="file"]');
         if (input) {
@@ -307,11 +324,17 @@
           const dt = new DataTransfer();
           dt.items.add(file);
           input.files = dt.files;
-          input.dispatchEvent(new Event("change", { bubbles: true }));
         }
-        setFilePreview(host, URL.createObjectURL(blob), true);
+        if (host._docObjectUrl) {
+          try {
+            URL.revokeObjectURL(host._docObjectUrl);
+          } catch (e) {}
+        }
+        const previewUrl = URL.createObjectURL(blob);
+        host._docObjectUrl = previewUrl;
         host.dataset.edited = "1";
-        closeEdit();
+        setFilePreview(host, previewUrl, true);
+        closeEdit(false);
       },
       "image/jpeg",
       0.9
@@ -319,17 +342,29 @@
   }
 
   function setFilePreview(host, url, edited) {
+    if (!host) return;
     const thumb = host.querySelector("[data-doc-thumb]");
     const empty = host.querySelector("[data-doc-empty]");
     const editBtn = host.querySelector("[data-doc-adjust]");
     const clearBtn = host.querySelector("[data-doc-clear]");
     if (thumb) {
-      thumb.hidden = !url;
-      if (url) thumb.src = url;
+      if (url) {
+        thumb.removeAttribute("hidden");
+        thumb.hidden = false;
+        thumb.src = url;
+        thumb.style.display = "block";
+      } else {
+        thumb.hidden = true;
+        thumb.removeAttribute("src");
+        thumb.style.display = "none";
+      }
     }
-    if (empty) empty.hidden = !!url;
+    if (empty) {
+      empty.hidden = !!url;
+      if (!url) empty.textContent = "PDF or image · optional adjust for photos";
+    }
     if (editBtn) editBtn.hidden = !url;
-    if (clearBtn) clearBtn.hidden = !url;
+    if (clearBtn) clearBtn.hidden = !url && !edited;
   }
 
   function clearFile(host) {
@@ -339,6 +374,12 @@
       try {
         input.files = new DataTransfer().files;
       } catch (e) {}
+    }
+    if (host._docObjectUrl) {
+      try {
+        URL.revokeObjectURL(host._docObjectUrl);
+      } catch (e) {}
+      host._docObjectUrl = "";
     }
     host.dataset.edited = "";
     const current = host.getAttribute("data-current") || "";
@@ -390,9 +431,21 @@
         host.dataset.skipEditor = "";
         return;
       }
-      const isImage = /^image\//.test(file.type) || /\.(png|jpe?g|webp|gif)$/i.test(file.name || "");
+      const isImage =
+        /^image\//.test(file.type || "") ||
+        /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name || "");
+      if (host._docObjectUrl) {
+        try {
+          URL.revokeObjectURL(host._docObjectUrl);
+        } catch (e) {}
+        host._docObjectUrl = "";
+      }
       if (isImage) {
-        openEdit(host, URL.createObjectURL(file));
+        const url = URL.createObjectURL(file);
+        host._docObjectUrl = url;
+        // Show preview immediately, then open adjust editor on top
+        setFilePreview(host, url, true);
+        openEdit(host, url);
       } else {
         setFilePreview(host, "", false);
         const empty = host.querySelector("[data-doc-empty]");

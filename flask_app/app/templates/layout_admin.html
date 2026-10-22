@@ -198,13 +198,8 @@
         <div class="heading-actions">{% block heading_actions %}{% endblock %}</div>
       </div>
 
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-          <div class="alert {% if category == 'danger' %}error{% elif category == 'warning' %}info{% else %}{{ category }}{% endif %}" role="alert">
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endwith %}
+      {# Flash banners removed — use the notification bell for updates #}
+      {% set _flashes = get_flashed_messages() %}
       {% block content %}{% endblock %}
     </main>
   </div>

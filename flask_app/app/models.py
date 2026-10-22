@@ -157,6 +157,14 @@ class Employee(UserMixin, db.Model):
     def username(self) -> str:
         return self.employee_code
 
+    @property
+    def initials(self) -> str:
+        text = (self.full_name or self.employee_code or "E").strip() or "E"
+        parts = [p for p in text.replace(".", " ").replace("_", " ").split() if p]
+        if len(parts) >= 2:
+            return (parts[0][0] + parts[1][0]).upper()
+        return (parts[0][:2] if parts else "E").upper()
+
 
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"

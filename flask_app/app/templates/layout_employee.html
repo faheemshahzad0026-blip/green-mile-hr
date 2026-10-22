@@ -28,17 +28,19 @@
       <div class="nav-label">APP</div>
       <a class="nav {% if _ep == 'employee.download_apk_page' %}active{% endif %}" href="{{ url_for('employee.download_apk_page') }}"><span>Download Android app</span></a>
     </div>
-    <div class="sidebar-bottom">
-      <div class="avatar">{{ current_user.display_name[:2]|upper }}</div>
-      <div><strong>{{ current_user.display_name }}</strong><span>{{ current_user.employee_code }}</span></div>
-      <a href="{{ url_for('auth.logout') }}" title="Sign out">⎋</a>
+    <div class="sidebar-credit">
+      <p>Developed and designed by<br><strong>U. Technologies</strong></p>
+      <a href="https://udottechnologies.com" target="_blank" rel="noopener noreferrer" class="sidebar-credit-link">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm7.4 9h-3.1a15.5 15.5 0 0 0-1.3-5 8 8 0 0 1 4.4 5zM12 4c.9 0 2.3 1.9 2.9 5H9.1C9.7 5.9 11.1 4 12 4zM4.6 13a8 8 0 0 1 0-2h3.1a15.5 15.5 0 0 0 0 2zm.9 2h3.1a15.5 15.5 0 0 0 1.3 5 8 8 0 0 1-4.4-5zm4.6 0h4c-.6 3.1-2 5-2.9 5s-2.3-1.9-2.9-5zm5.3 5a15.5 15.5 0 0 0 1.3-5h3.1a8 8 0 0 1-4.4 5zM15.2 13H8.8a13.4 13.4 0 0 1 0-2h6.4a13.4 13.4 0 0 1 0 2z"/></svg>
+        <span>udottechnologies.com</span>
+      </a>
     </div>
   </aside>
   <div class="scrim" onclick="toggleSidebar()"></div>
   <div class="main">
-    <header class="topbar">
+    <header class="topbar topbar-enhanced">
       <div class="crumb">
-        <button class="icon mobile-toggle" type="button" onclick="toggleSidebar()">☰</button>
+        <button class="icon mobile-toggle" type="button" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
         <span>Employee</span><span>›</span><strong>{% block page_title %}Home{% endblock %}</strong>
       </div>
       <div class="top-right">
@@ -73,7 +75,32 @@
             <a class="header-dropdown-foot" href="{{ url_for('employee.announcements') }}">Open announcements</a>
           </div>
         </div>
-        <img class="header-logo" src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="Green Mile">
+
+        <div class="header-menu">
+          <button type="button" class="header-user-trigger header-menu-btn" aria-haspopup="true" onclick="toggleHeaderMenu(this)" title="{{ current_user.display_name }}">
+            <span class="avatar header-user-btn">{{ current_user.initials }}</span>
+          </button>
+          <div class="header-dropdown user-dropdown cool-dropdown">
+            <div class="user-hero">
+              <div class="avatar user-hero-avatar">{{ current_user.initials }}</div>
+              <div class="user-hero-text">
+                <strong>{{ current_user.display_name }}</strong>
+                <span>{{ current_user.employee_code }}</span>
+                <span>{% if brand_agency %}{{ brand_agency.company_name or brand_agency.name }}{% else %}Employee{% endif %}</span>
+              </div>
+            </div>
+            <div class="user-menu-links">
+              <a class="user-link" href="{{ url_for('employee.home') }}">
+                <span class="user-link-ico">⌂</span>
+                <span><strong>Dashboard</strong><small>Your employee home</small></span>
+              </a>
+              <a class="user-link danger" href="{{ url_for('auth.logout') }}">
+                <span class="user-link-ico">→</span>
+                <span><strong>Sign out</strong><small>End this session</small></span>
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
     <main class="content">

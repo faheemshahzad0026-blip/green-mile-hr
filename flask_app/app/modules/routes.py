@@ -30,11 +30,49 @@ def _agency_or_redirect():
 
 
 def _employees_for_agency(agency_id):
-    return (
-        Employee.query.filter_by(agency_id=agency_id, is_active=True)
-        .order_by(Employee.employee_code.asc())
+    """People for employee pickers (shifts, leave, payroll, …).
+
+    Built from Active HR employee records — not the app-login ``is_active`` flag,
+    so blocked-app staff still appear when assigning shifts.
+    Option values prefer ``authEmployeeId`` (same as emp_ref / filters).
+    """
+    from types import SimpleNamespace
+
+    rows = (
+        HrRecord.query.filter_by(agency_id=agency_id, kind="employees")
+        .order_by(HrRecord.id.desc())
         .all()
     )
+    result = []
+    seen = set()
+    for r in rows:
+        data = r.data or {}
+        if _employment_status(data) == "Inactive":
+            continue
+        code = (data.get("code") or "").strip()
+        name = (data.get("name") or "Employee").strip()
+        value_id = data.get("authEmployeeId")
+        if value_id is None and code:
+            auth = Employee.query.filter_by(
+                agency_id=agency_id, employee_code=code
+            ).first()
+            if auth:
+                value_id = auth.id
+        if value_id is None:
+            value_id = r.id
+        key = str(value_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(
+            SimpleNamespace(
+                id=value_id,
+                full_name=name,
+                employee_code=code or str(value_id),
+            )
+        )
+    result.sort(key=lambda e: str(e.employee_code))
+    return result
 
 
 def _display(record, key, employees_map):
@@ -95,7 +133,8 @@ def _sync_auth_employee(agency_id, data, record_id=None):
             email=data.get("email"),
             designation=data.get("designation"),
             department=data.get("department"),
-            is_active=data.get("status", "Active") == "Active",
+            # App login default: Not allowed until HR selects Allow in App Login modal
+            is_active=False,
         )
         emp.set_pin(pin)
         db.session.add(emp)
@@ -448,7 +487,14 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
             return _redirect_after()
 
         # App access modal actions from Employees listing
-        if kind == "employees" and action in {"toggle_app", "reset_pin", "set_pin", "allow_app", "block_app"}:
+        if kind == "employees" and action in {
+            "toggle_app",
+            "reset_pin",
+            "set_pin",
+            "allow_app",
+            "block_app",
+            "set_app_status",
+        }:
             return _employee_app_access_action(agency, action)
 
         data = {}
@@ -630,7 +676,7 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
         q=q,
         tab=tab,
         read_only=read_only,
-        # Employees use an in-page modal; other modules keep the inline card form.
+        # Open add/edit record modal when ?new=1 or ?edit=id
         show_form=(
             not read_only
             and kind != "employees"
@@ -647,6 +693,35 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
 def _employee_app_access_action(agency, action):
     """Allow / block app login and reveal credentials from the listing modal."""
     import secrets
+
+    from flask import jsonify
+
+    wants_json = (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or "application/json" in (request.headers.get("Accept") or "")
+    )
+
+    def _json(payload, code=200):
+        return jsonify(payload), code
+
+    def _done(message, allowed=None, pin=None, code_val=None, error=None, status=200):
+        if wants_json:
+            if error:
+                return _json({"ok": False, "error": error}, status)
+            return _json(
+                {
+                    "ok": True,
+                    "message": message,
+                    "allowed": bool(allowed if allowed is not None else (auth.is_active if auth else False)),
+                    "pin": pin or session.get(f"reveal_pin_{rec.id}", ""),
+                    "code": code_val or (auth.employee_code if auth else ""),
+                }
+            )
+        if error:
+            flash(error, "danger")
+        else:
+            flash(message, "success")
+        return redirect(url_for("modules.module_list", kind="employees", app=rec.id))
 
     rid = int(request.form.get("id") or 0)
     rec = HrRecord.query.filter_by(
@@ -686,12 +761,45 @@ def _employee_app_access_action(agency, action):
         rec.data = data
         session[f"reveal_pin_{rec.id}"] = new_pin
 
+    if action == "set_app_status":
+        status = (request.form.get("status") or "not_allowed").strip()
+        if status == "allowed":
+            auth.is_active = True
+            if not session.get(f"reveal_pin_{rec.id}"):
+                new_pin = f"{secrets.randbelow(1000000):06d}"
+                auth.set_pin(new_pin)
+                session[f"reveal_pin_{rec.id}"] = new_pin
+            write_audit(
+                "app_access_toggle",
+                f"{auth.employee_code} active=True",
+                agency_id=agency.id,
+            )
+            db.session.commit()
+            return _done(
+                "App login allowed. Employee can sign in with Login ID and PIN.",
+                allowed=True,
+                pin=session.get(f"reveal_pin_{rec.id}", ""),
+                code_val=auth.employee_code,
+            )
+        auth.is_active = False
+        write_audit(
+            "app_access_toggle",
+            f"{auth.employee_code} active=False",
+            agency_id=agency.id,
+        )
+        db.session.commit()
+        return _done(
+            "App login not allowed. Employee will see: ID disabled. Please contact HR department.",
+            allowed=False,
+            pin=session.get(f"reveal_pin_{rec.id}", ""),
+            code_val=auth.employee_code,
+        )
     if action == "block_app" or (action == "toggle_app" and auth.is_active):
         auth.is_active = False
         write_audit("app_access_toggle", f"{auth.employee_code} active=False", agency_id=agency.id)
         db.session.commit()
-        flash("App access blocked.", "success")
-    elif action in {"allow_app", "toggle_app"}:
+        return _done("App login not allowed.", allowed=False, code_val=auth.employee_code)
+    if action in {"allow_app", "toggle_app"}:
         auth.is_active = True
         if not session.get(f"reveal_pin_{rec.id}"):
             new_pin = f"{secrets.randbelow(1000000):06d}"
@@ -703,31 +811,40 @@ def _employee_app_access_action(agency, action):
             agency_id=agency.id,
         )
         db.session.commit()
-        flash(
-            "App access allowed. Copy Employee ID and PIN below to send to the user.",
-            "success",
+        return _done(
+            "App login allowed. Copy Login ID and PIN for the employee.",
+            allowed=True,
+            pin=session.get(f"reveal_pin_{rec.id}", ""),
+            code_val=auth.employee_code,
         )
-    elif action == "reset_pin":
+    if action == "reset_pin":
         new_pin = f"{secrets.randbelow(1000000):06d}"
         auth.set_pin(new_pin)
         session[f"reveal_pin_{rec.id}"] = new_pin
-        auth.is_active = True
         write_audit("app_pin_reset", auth.employee_code, agency_id=agency.id)
         db.session.commit()
-        flash(f"New app PIN ready to copy: {new_pin}", "success")
-    elif action == "set_pin":
+        return _done(
+            f"New PIN generated: {new_pin}",
+            allowed=auth.is_active,
+            pin=new_pin,
+            code_val=auth.employee_code,
+        )
+    if action == "set_pin":
         new_pin = (request.form.get("pin") or "").strip()
         if not re.fullmatch(r"\d{6}", new_pin):
-            flash("PIN must be exactly 6 digits.", "danger")
-            return redirect(url_for("modules.module_list", kind="employees", app=rec.id))
+            return _done("", error="PIN must be exactly 6 digits.", status=400)
         auth.set_pin(new_pin)
         session[f"reveal_pin_{rec.id}"] = new_pin
-        auth.is_active = True
         write_audit("app_pin_set", auth.employee_code, agency_id=agency.id)
         db.session.commit()
-        flash("App PIN saved. Copy it now to send to the user.", "success")
+        return _done(
+            "App PIN saved. Copy it now to send to the user.",
+            allowed=auth.is_active,
+            pin=new_pin,
+            code_val=auth.employee_code,
+        )
 
-    return redirect(url_for("modules.module_list", kind="employees", app=rec.id))
+    return _done("", error="Unknown action.", status=400)
 
 
 def _tool_page(kind, agency):

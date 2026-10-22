@@ -3,53 +3,13 @@
 {% block page_title %}Documents{% endblock %}
 {% block heading %}My documents{% endblock %}
 {% block description %}Upload and manage your personal HR documents (PDF or image).{% endblock %}
+{% block heading_actions %}
+<button type="button" class="primary" onclick="openDocModal()">+ Upload document</button>
+{% endblock %}
 {% block content %}
-<section class="card" style="margin-bottom:22px">
-  <div class="card-head">
-    <div><h2>Upload document</h2><p>PDF, PNG, JPG, WEBP or GIF.</p></div>
-  </div>
-  <form method="post" enctype="multipart/form-data" class="record-form" style="padding:0 22px 22px">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="action" value="upload">
-    <div class="form-grid">
-      <label>
-        <span class="field-label">Document type<em> *</em></span>
-        <select name="type" required>
-          {% for t in doc_types %}
-          <option value="{{ t }}">{{ t }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>
-        <span class="field-label">Document number</span>
-        <input type="text" name="number" maxlength="120" placeholder="e.g. 784-…">
-      </label>
-      <label>
-        <span class="field-label">Issue date</span>
-        <input type="date" name="issued">
-      </label>
-      <label>
-        <span class="field-label">Expiry date</span>
-        <input type="date" name="expiry">
-      </label>
-      <label>
-        <span class="field-label">File</span>
-        <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif">
-      </label>
-      <label style="grid-column:1/-1">
-        <span class="field-label">Notes</span>
-        <input type="text" name="notes" maxlength="400" placeholder="e.g. Renewed copy">
-      </label>
-    </div>
-    <div class="record-form-actions" style="margin-top:16px">
-      <button class="primary" type="submit">Save document</button>
-    </div>
-  </form>
-</section>
-
 <section class="card table-card">
   <div class="card-head">
-    <div><h2>Stored documents</h2><p>Visible to you and HR.</p></div>
+    <div><h2>Stored documents</h2><p>Visible to you and HR. PDF, PNG, JPG, WEBP or GIF.</p></div>
   </div>
   {% if documents %}
   <div class="table-scroll">
@@ -84,7 +44,89 @@
     </table>
   </div>
   {% else %}
-  <div class="empty"><p>No documents uploaded yet.</p></div>
+  <div class="empty">
+    <div class="empty-icon">◇</div>
+    <h3>No documents uploaded yet</h3>
+    <p>Upload a PDF or image for HR to review.</p>
+    <button type="button" class="text-btn" onclick="openDocModal()">+ Upload document</button>
+  </div>
   {% endif %}
 </section>
+
+<div class="modal-backdrop" id="docFormModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="docFormTitle">
+    <form method="post" enctype="multipart/form-data" id="docForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="upload">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">DOCUMENTS</div>
+          <h2 id="docFormTitle">Upload document</h2>
+          <p>PDF, PNG, JPG, WEBP or GIF.</p>
+        </div>
+        <button type="button" class="icon" onclick="closeDocModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <label>
+            <span class="field-label">Document type<em> *</em></span>
+            <select name="type" required>
+              {% for t in doc_types %}
+              <option value="{{ t }}">{{ t }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span class="field-label">Document number</span>
+            <input type="text" name="number" maxlength="120" placeholder="e.g. 784-…">
+          </label>
+          <label>
+            <span class="field-label">Issue date</span>
+            <input type="date" name="issued">
+          </label>
+          <label>
+            <span class="field-label">Expiry date</span>
+            <input type="date" name="expiry">
+          </label>
+          <label>
+            <span class="field-label">File</span>
+            <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif">
+          </label>
+          <label style="grid-column:1/-1">
+            <span class="field-label">Notes</span>
+            <input type="text" name="notes" maxlength="400" placeholder="e.g. Renewed copy">
+          </label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="closeDocModal()">Cancel</button>
+        <button class="primary" type="submit">Save document</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+function openDocModal(){
+  const modal=document.getElementById('docFormModal');
+  const form=document.getElementById('docForm');
+  if(!modal||!form) return;
+  form.reset();
+  modal.hidden=false;
+  document.body.style.overflow='hidden';
+  if(window.applyPlaceholders) window.applyPlaceholders(modal);
+  const first=form.querySelector('[name="type"]');
+  if(first) setTimeout(()=>first.focus(),50);
+}
+function closeDocModal(){
+  const modal=document.getElementById('docFormModal');
+  if(!modal) return;
+  modal.hidden=true;
+  document.body.style.overflow='';
+}
+document.addEventListener('click',function(e){ if(e.target.id==='docFormModal') closeDocModal(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeDocModal(); });
+</script>
 {% endblock %}

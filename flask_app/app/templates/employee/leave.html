@@ -3,6 +3,9 @@
 {% block page_title %}Leave{% endblock %}
 {% block heading %}Leave{% endblock %}
 {% block description %}Anniversary-year annual balance (same rules as the old app). New requests start as Pending for HR.{% endblock %}
+{% block heading_actions %}
+<button type="button" class="primary" onclick="openLeaveModal()">+ Apply for leave</button>
+{% endblock %}
 {% block content %}
 <div class="stats emp-quota-stats">
   <div class="stat">
@@ -27,40 +30,6 @@
     <div class="stat-sub">{% if quotas.cycle_start %}{{ quotas.cycle_start }} → {{ quotas.cycle_end }}{% else %}awaiting HR decision{% endif %}</div>
   </div>
 </div>
-
-<section class="card" style="margin-bottom:22px">
-  <div class="card-head">
-    <div><h2>Apply for leave</h2><p>Cannot overlap another pending or approved request.</p></div>
-  </div>
-  <form method="post" class="record-form" style="padding:0 22px 22px">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="form-grid">
-      <label>
-        <span class="field-label">Leave type<em> *</em></span>
-        <select name="type" required>
-          {% for t in leave_types %}
-          <option value="{{ t }}" {% if t == 'Annual' %}selected{% endif %}>{{ t }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>
-        <span class="field-label">Start date<em> *</em></span>
-        <input type="date" name="from" required>
-      </label>
-      <label>
-        <span class="field-label">End date<em> *</em></span>
-        <input type="date" name="to" required>
-      </label>
-      <label style="grid-column:1/-1">
-        <span class="field-label">Reason<em> *</em></span>
-        <input type="text" name="reason" maxlength="2000" required placeholder="e.g. Family travel">
-      </label>
-    </div>
-    <div class="record-form-actions" style="margin-top:16px">
-      <button class="primary" type="submit">Submit leave request</button>
-    </div>
-  </form>
-</section>
 
 <section class="card table-card">
   <div class="card-head">
@@ -87,7 +56,82 @@
     </table>
   </div>
   {% else %}
-  <div class="empty"><p>No leave requests yet.</p></div>
+  <div class="empty">
+    <div class="empty-icon">◇</div>
+    <h3>No leave requests yet</h3>
+    <p>Cannot overlap another pending or approved request.</p>
+    <button type="button" class="text-btn" onclick="openLeaveModal()">+ Apply for leave</button>
+  </div>
   {% endif %}
 </section>
+
+<div class="modal-backdrop" id="leaveFormModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="leaveFormTitle">
+    <form method="post" id="leaveForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">LEAVE</div>
+          <h2 id="leaveFormTitle">Apply for leave</h2>
+          <p>Cannot overlap another pending or approved request.</p>
+        </div>
+        <button type="button" class="icon" onclick="closeLeaveModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <label>
+            <span class="field-label">Leave type<em> *</em></span>
+            <select name="type" required>
+              {% for t in leave_types %}
+              <option value="{{ t }}" {% if t == 'Annual' %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span class="field-label">Start date<em> *</em></span>
+            <input type="date" name="from" required>
+          </label>
+          <label>
+            <span class="field-label">End date<em> *</em></span>
+            <input type="date" name="to" required>
+          </label>
+          <label style="grid-column:1/-1">
+            <span class="field-label">Reason<em> *</em></span>
+            <input type="text" name="reason" maxlength="2000" required placeholder="e.g. Family travel">
+          </label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="closeLeaveModal()">Cancel</button>
+        <button class="primary" type="submit">Submit leave request</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+function openLeaveModal(){
+  const modal=document.getElementById('leaveFormModal');
+  const form=document.getElementById('leaveForm');
+  if(!modal||!form) return;
+  form.reset();
+  const type=form.querySelector('[name="type"]');
+  if(type) type.value='Annual';
+  modal.hidden=false;
+  document.body.style.overflow='hidden';
+  if(window.applyPlaceholders) window.applyPlaceholders(modal);
+  const first=form.querySelector('[name="from"]');
+  if(first) setTimeout(()=>first.focus(),50);
+}
+function closeLeaveModal(){
+  const modal=document.getElementById('leaveFormModal');
+  if(!modal) return;
+  modal.hidden=true;
+  document.body.style.overflow='';
+}
+document.addEventListener('click',function(e){ if(e.target.id==='leaveFormModal') closeLeaveModal(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeLeaveModal(); });
+</script>
 {% endblock %}

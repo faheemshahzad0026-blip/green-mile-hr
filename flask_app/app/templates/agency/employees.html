@@ -2,26 +2,11 @@
 {% block title %}Employees · Green Mile HR{% endblock %}
 {% block heading %}Employees{% endblock %}
 {% block description %}Register employees for {{ agency.company_name }}. They sign in with ID + PIN.{% endblock %}
-{% block heading_actions %}<span class="soft-badge">{{ employees|length }} record(s)</span>{% endblock %}
+{% block heading_actions %}
+<span class="soft-badge">{{ employees|length }} record(s)</span>
+<button type="button" class="primary" onclick="openAgencyEmpModal()">+ Register employee</button>
+{% endblock %}
 {% block content %}
-<section class="card" style="margin-bottom:22px">
-  <div class="card-head"><div><h2>Register employee</h2><p>Employee ID is auto-assigned if left blank.</p></div></div>
-  <form method="post" class="form-body">
-    {{ form.hidden_tag() }}
-    <div class="form-grid">
-      <label><span class="field-label">Employee ID</span>{{ form.employee_code() }}</label>
-      <label><span class="field-label">Full name <em>*</em></span>{{ form.full_name() }}</label>
-      <label><span class="field-label">Phone</span>{{ form.phone() }}</label>
-      <label><span class="field-label">Email</span>{{ form.email() }}</label>
-      <label><span class="field-label">Designation</span>{{ form.designation() }}</label>
-      <label><span class="field-label">Department</span>{{ form.department() }}</label>
-      <label><span class="field-label">6-digit PIN <em>*</em></span>{{ form.pin(inputmode='numeric', maxlength=6) }}</label>
-    </div>
-    <div class="modal-foot" style="position:static;box-shadow:none;margin-top:18px;padding:0">
-      {{ form.submit(class_='primary') }}
-    </div>
-  </form>
-</section>
 <section class="card table-card">
   <div class="table-toolbar">
     <form class="search" method="get">
@@ -49,10 +34,62 @@
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="5">No employees yet.</td></tr>
+        <tr><td colspan="5">No employees yet. <button type="button" class="text-btn" onclick="openAgencyEmpModal()">Register</button></td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
+<div class="modal-backdrop" id="agencyEmpModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="agencyEmpTitle">
+    <form method="post" id="agencyEmpForm">
+      {{ form.hidden_tag() }}
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">EMPLOYEES</div>
+          <h2 id="agencyEmpTitle">Register employee</h2>
+          <p>Employee ID is auto-assigned if left blank.</p>
+        </div>
+        <button type="button" class="icon" onclick="closeAgencyEmpModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <label><span class="field-label">Employee ID</span>{{ form.employee_code() }}</label>
+          <label><span class="field-label">Full name <em>*</em></span>{{ form.full_name() }}</label>
+          <label><span class="field-label">Phone</span>{{ form.phone() }}</label>
+          <label><span class="field-label">Email</span>{{ form.email() }}</label>
+          <label><span class="field-label">Designation</span>{{ form.designation() }}</label>
+          <label><span class="field-label">Department</span>{{ form.department() }}</label>
+          <label><span class="field-label">6-digit PIN <em>*</em></span>{{ form.pin(inputmode='numeric', maxlength=6) }}</label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="closeAgencyEmpModal()">Cancel</button>
+        {{ form.submit(class_='primary') }}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+function openAgencyEmpModal(){
+  const modal=document.getElementById('agencyEmpModal');
+  if(!modal) return;
+  modal.hidden=false;
+  document.body.style.overflow='hidden';
+  if(window.applyPlaceholders) window.applyPlaceholders(modal);
+}
+function closeAgencyEmpModal(){
+  const modal=document.getElementById('agencyEmpModal');
+  if(!modal) return;
+  modal.hidden=true;
+  document.body.style.overflow='';
+}
+document.addEventListener('click',function(e){ if(e.target.id==='agencyEmpModal') closeAgencyEmpModal(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeAgencyEmpModal(); });
+{% if form.errors %}openAgencyEmpModal();{% endif %}
+</script>
 {% endblock %}

@@ -12,6 +12,8 @@ Inactive agencies cannot log in.
 
 ## Local setup (Windows)
 
+Use **Python 3.12 or 3.13** if possible. Python **3.14** works if you install deps from this repo’s `requirements.txt` (needs Pillow 12+ for prebuilt Windows wheels). Do not use Pillow 11 on 3.14 — pip will try to compile it and fail without zlib.
+
 Double-click or run:
 
 ```bat

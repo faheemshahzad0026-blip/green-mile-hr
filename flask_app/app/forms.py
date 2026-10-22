@@ -4,34 +4,26 @@ from wtforms import BooleanField, PasswordField, SelectField, StringField, Submi
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, Regexp
 
 
-class AdminLoginForm(FlaskForm):
-    username = StringField(
-        "Username",
-        validators=[DataRequired(), Length(min=3, max=40)],
-        render_kw={"placeholder": "e.g. ahmed.khan"},
+class UnifiedLoginForm(FlaskForm):
+    """One login: HR username/password or employee ID/PIN."""
+
+    login_id = StringField(
+        "User / ID",
+        validators=[DataRequired(), Length(min=2, max=80)],
+        render_kw={"placeholder": "e.g. ahmed.khan or 00001"},
     )
-    password = PasswordField(
-        "Password",
-        validators=[DataRequired(), Length(max=128)],
-        render_kw={"placeholder": "e.g. ••••••••"},
+    secret = PasswordField(
+        "Password / PIN",
+        validators=[DataRequired(), Length(min=4, max=128)],
+        render_kw={"placeholder": "Password or 6-digit PIN"},
     )
     remember_me = BooleanField("Remember me", default=False)
     submit = SubmitField("Sign in")
 
 
-class EmployeeLoginForm(FlaskForm):
-    employee_code = StringField(
-        "Employee ID",
-        validators=[DataRequired(), Length(max=40)],
-        render_kw={"placeholder": "e.g. EMP-1042"},
-    )
-    pin = PasswordField(
-        "6-digit PIN",
-        validators=[DataRequired(), Regexp(r"^\d{6}$", message="PIN must be 6 digits")],
-        render_kw={"placeholder": "e.g. 123456"},
-    )
-    remember_me = BooleanField("Remember me", default=False)
-    submit = SubmitField("Sign in")
+# Back-compat aliases
+AdminLoginForm = UnifiedLoginForm
+EmployeeLoginForm = UnifiedLoginForm
 
 
 class AgencyForm(FlaskForm):

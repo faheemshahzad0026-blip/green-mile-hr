@@ -70,7 +70,9 @@ def create_app(config_class=Config):
         announcement_count = 0
         if current_user.is_authenticated:
             if getattr(current_user, "is_employee_account", False):
-                agency = db.session.get(Agency, current_user.agency_id)
+                # Employee always uses their agency branding (logo → favicon)
+                if getattr(current_user, "agency_id", None):
+                    agency = db.session.get(Agency, current_user.agency_id)
                 try:
                     from app.employee.services import employee_notifications, published_announcements
 
@@ -80,6 +82,7 @@ def create_app(config_class=Config):
                     notify_items = []
                     announcement_count = 0
             else:
+                # Agency admin / staff: active workspace agency logo as favicon
                 agency = get_active_agency()
                 if agency is None and getattr(current_user, "agency_id", None):
                     agency = db.session.get(Agency, current_user.agency_id)
@@ -88,8 +91,19 @@ def create_app(config_class=Config):
         from app.period import get_period_state
 
         now_label = (datetime.now(timezone.utc) + timedelta(hours=4)).strftime("%d/%m/%Y")
+        agency_favicon_url = None
+        if agency and getattr(agency, "logo_path", None):
+            from flask import url_for
+
+            try:
+                agency_favicon_url = url_for("static", filename=agency.logo_path)
+                if getattr(agency, "updated_at", None):
+                    agency_favicon_url += f"?v={int(agency.updated_at.timestamp())}"
+            except Exception:
+                agency_favicon_url = None
         return {
             "brand_agency": agency,
+            "agency_favicon_url": agency_favicon_url,
             "app_name": "Green Mile HR",
             "now_label": now_label,
             "notify_items": notify_items,

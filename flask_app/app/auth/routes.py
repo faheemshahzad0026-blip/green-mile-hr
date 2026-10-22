@@ -5,13 +5,12 @@ from flask import current_app, jsonify, make_response, redirect, render_template
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app.auth import bp
-from app.forms import AdminLoginForm, EmployeeLoginForm
+from app.forms import UnifiedLoginForm
 from app.models import Agency, Employee, User
 
 SESSION_SHORT = timedelta(hours=6)
 SESSION_LONG = timedelta(days=30)
-REMEMBER_USER_COOKIE = "gm_remember_user"
-REMEMBER_EMP_COOKIE = "gm_remember_emp"
+REMEMBER_LOGIN_COOKIE = "gm_remember_login"
 
 
 def _apply_session_duration(remember: bool):
@@ -26,11 +25,11 @@ def _apply_session_duration(remember: bool):
         current_app.config["REMEMBER_COOKIE_DURATION"] = SESSION_SHORT
 
 
-def _set_remember_id_cookie(resp, cookie_name: str, value: str | None, remember: bool):
+def _set_remember_id_cookie(resp, value: str | None, remember: bool):
     """Store login ID only (never password/PIN) when Remember me is checked."""
     if remember and value:
         resp.set_cookie(
-            cookie_name,
+            REMEMBER_LOGIN_COOKIE,
             value,
             max_age=int(SESSION_LONG.total_seconds()),
             httponly=True,
@@ -38,48 +37,103 @@ def _set_remember_id_cookie(resp, cookie_name: str, value: str | None, remember:
             secure=bool(request.is_secure),
         )
     else:
-        resp.delete_cookie(cookie_name)
+        resp.delete_cookie(REMEMBER_LOGIN_COOKIE)
+        # Clear legacy cookies
+        resp.delete_cookie("gm_remember_user")
+        resp.delete_cookie("gm_remember_emp")
+
+
+def _try_admin_login(login_id: str, secret: str):
+    user = User.query.filter_by(username=login_id).first()
+    if not user or not user.check_password(secret):
+        return None, None
+    if not user.is_active:
+        return None, "This account is disabled."
+    if user.agency_id:
+        agency = Agency.query.get(user.agency_id)
+        if not agency or not agency.is_active:
+            return None, "This agency is inactive. Contact Super Admin."
+    return user, None
+
+
+def _try_employee_login(login_id: str, secret: str):
+    candidates = Employee.query.filter_by(employee_code=login_id).all()
+    employee = None
+    disabled_match = False
+    for cand in candidates:
+        if not cand.check_pin(secret):
+            continue
+        agency = Agency.query.get(cand.agency_id)
+        if not agency or not agency.is_active:
+            continue
+        if not cand.is_active:
+            disabled_match = True
+            continue
+        employee = cand
+        break
+    if disabled_match and not employee:
+        return None, "ID disabled. Please contact HR department."
+    if not employee:
+        return None, None
+    return employee, None
 
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    """Admin / staff / super-admin login — matches old /login page."""
+    """Single login for HR (username + password) and employees (ID + PIN)."""
     if current_user.is_authenticated:
         return _post_login_redirect(current_user)
 
-    form = AdminLoginForm()
-    if request.method == "GET" and not form.username.data:
-        saved = request.cookies.get(REMEMBER_USER_COOKIE)
+    form = UnifiedLoginForm()
+    if request.method == "GET" and not form.login_id.data:
+        saved = (
+            request.cookies.get(REMEMBER_LOGIN_COOKIE)
+            or request.cookies.get("gm_remember_user")
+            or request.cookies.get("gm_remember_emp")
+        )
         if saved:
-            form.username.data = saved
+            form.login_id.data = saved
             form.remember_me.data = True
 
     error = None
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data.strip()).first()
-        if not user or not user.check_password(form.password.data):
-            error = "Invalid username or password."
-        elif not user.is_active:
-            error = "This account is disabled."
-        elif user.agency_id:
-            agency = Agency.query.get(user.agency_id)
-            if not agency or not agency.is_active:
-                error = "This agency is inactive. Contact Super Admin."
-        if not error:
+        login_id = form.login_id.data.strip()
+        secret = form.secret.data.strip()
+        account = None
+
+        # Prefer HR/admin username match; otherwise try employee ID + PIN
+        user, user_err = _try_admin_login(login_id, secret)
+        if user_err:
+            error = user_err
+        elif user:
+            account = user
+        else:
+            emp, emp_err = _try_employee_login(login_id, secret)
+            if emp_err:
+                error = emp_err
+            elif emp:
+                account = emp
+            else:
+                error = "Invalid user/ID or password/PIN."
+
+        if account and not error:
             remember = bool(form.remember_me.data)
             _apply_session_duration(remember)
             login_user(
-                user,
+                account,
                 remember=remember,
                 duration=SESSION_LONG if remember else SESSION_SHORT,
             )
             session.pop("view_agency_id", None)
-            if user.agency_id:
-                session["view_agency_id"] = user.agency_id
-            resp = make_response(_post_login_redirect(user))
-            _set_remember_id_cookie(
-                resp, REMEMBER_USER_COOKIE, user.username if remember else None, remember
+            if getattr(account, "agency_id", None):
+                session["view_agency_id"] = account.agency_id
+            remember_value = (
+                account.employee_code
+                if getattr(account, "is_employee_account", False)
+                else account.username
             )
+            resp = make_response(_post_login_redirect(account))
+            _set_remember_id_cookie(resp, remember_value if remember else None, remember)
             return resp
 
     return render_template("auth/login.html", form=form, error=error)
@@ -87,61 +141,16 @@ def login():
 
 @bp.route("/employee-login", methods=["GET", "POST"])
 def employee_login():
-    """Employee web login (ID + PIN). No agency code required."""
-    if current_user.is_authenticated:
-        return _post_login_redirect(current_user)
-
-    form = EmployeeLoginForm()
-    if request.method == "GET" and not form.employee_code.data:
-        saved = request.cookies.get(REMEMBER_EMP_COOKIE)
-        if saved:
-            form.employee_code.data = saved
-            form.remember_me.data = True
-
-    error = None
-    if form.validate_on_submit():
-        code = form.employee_code.data.strip()
-        pin = form.pin.data.strip()
-        matches = Employee.query.filter_by(employee_code=code, is_active=True).all()
-        employee = None
-        for cand in matches:
-            if cand.check_pin(pin):
-                agency = Agency.query.get(cand.agency_id)
-                if agency and agency.is_active:
-                    employee = cand
-                    break
-        if not employee:
-            error = "Invalid employee ID or PIN."
-        else:
-            remember = bool(form.remember_me.data)
-            _apply_session_duration(remember)
-            login_user(
-                employee,
-                remember=remember,
-                duration=SESSION_LONG if remember else SESSION_SHORT,
-            )
-            session["view_agency_id"] = employee.agency_id
-            resp = make_response(redirect(url_for("employee.home")))
-            _set_remember_id_cookie(
-                resp,
-                REMEMBER_EMP_COOKIE,
-                employee.employee_code if remember else None,
-                remember,
-            )
-            return resp
-
-    return render_template("auth/employee_login.html", form=form, error=error)
+    """Legacy URL — same unified login page."""
+    return redirect(url_for("auth.login"), code=301)
 
 
 @bp.route("/logout")
 @login_required
 def logout():
-    was_employee = getattr(current_user, "is_employee_account", False)
     logout_user()
     session.pop("view_agency_id", None)
     session.pop("long_session", None)
-    if was_employee:
-        return redirect(url_for("auth.employee_login"))
     return redirect(url_for("auth.login"))
 
 
@@ -170,19 +179,22 @@ def validate_field():
         if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value):
             return jsonify(ok=False, message="Enter a valid email, e.g. name@email.com.")
 
-    if field in {"username", "admin_username"}:
-        if len(value) < 3:
-            return jsonify(ok=False, message="Username must be at least 3 characters.")
-        if not re.match(r"^[a-zA-Z0-9._-]{3,40}$", value):
-            return jsonify(ok=False, message="Use letters, numbers, . _ - only (3–40 chars).")
-        q = User.query.filter_by(username=value)
-        if current_user.is_authenticated and not getattr(current_user, "is_employee_account", False):
-            q = q.filter(User.id != current_user.id)
-        if q.first():
-            return jsonify(ok=False, message="This username is already taken.")
+    if field in {"username", "admin_username", "login_id"}:
+        if len(value) < 2:
+            return jsonify(ok=False, message="Enter a user name or employee ID.")
+        if field in {"username", "admin_username"}:
+            if len(value) < 3:
+                return jsonify(ok=False, message="Username must be at least 3 characters.")
+            if not re.match(r"^[a-zA-Z0-9._-]{3,40}$", value):
+                return jsonify(ok=False, message="Use letters, numbers, . _ - only (3–40 chars).")
+            q = User.query.filter_by(username=value)
+            if current_user.is_authenticated and not getattr(current_user, "is_employee_account", False):
+                q = q.filter(User.id != current_user.id)
+            if q.first():
+                return jsonify(ok=False, message="This username is already taken.")
 
-    if field in {"password", "admin_password", "new_password"} and len(value) < 6:
-        return jsonify(ok=False, message="Password must be at least 6 characters.")
+    if field in {"password", "admin_password", "new_password", "secret"} and len(value) < 4:
+        return jsonify(ok=False, message="Enter your password or PIN.")
 
     if field in {"confirm", "password_confirm"}:
         other = (data.get("other") or "").strip()

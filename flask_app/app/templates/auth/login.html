@@ -7,21 +7,20 @@
     <div class="login-logo">
       <img src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="Green Mile Recycling LLC" width="88" height="92">
     </div>
-    <span class="login-eyebrow">HUMAN RESOURCES · ADMIN</span>
+    <span class="login-eyebrow">GREEN MILE HR</span>
     <h1>Welcome back</h1>
-    <p>Sign in to your HR workspace.</p>
     {% if error %}<p role="alert" class="login-error">{{ error }}</p>{% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
         <p role="alert" class="login-error">{{ message }}</p>
       {% endfor %}
     {% endwith %}
-    <label>Username
-      {{ form.username(required=true, pattern='[a-zA-Z0-9._-]{3,40}', minlength=3, maxlength=40, autocomplete='username', autocapitalize='none', spellcheck='false') }}
+    <label>User / ID
+      {{ form.login_id(required=true, minlength=2, maxlength=80, autocomplete='username', autocapitalize='none', spellcheck='false') }}
     </label>
-    <label class="login-pass-label">Password
+    <label class="login-pass-label">Password / PIN
       <div class="login-pass-wrap">
-        {{ form.password(required=true, maxlength=128, autocomplete='current-password', id='password', class_='login-pass-input') }}
+        {{ form.secret(required=true, minlength=4, maxlength=128, autocomplete='current-password', id='password', class_='login-pass-input') }}
         <button type="button" class="login-eye" id="togglePw" aria-label="Show password" aria-pressed="false" title="Show password">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
             <path class="eye-shape" fill="currentColor" d="M12 5c-5 0-9.3 3.1-11 7 1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
@@ -35,7 +34,6 @@
       <span>Remember me</span>
     </label>
     {{ form.submit(class_='primary') }}
-    <a class="login-recovery" href="{{ url_for('auth.employee_login') }}">Employee sign in (ID + PIN)</a>
   </form>
 </main>
 <script>

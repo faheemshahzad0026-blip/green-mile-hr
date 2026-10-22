@@ -12,8 +12,7 @@
     {% else %}
       <p class="login-error">APK is not uploaded on this server yet.</p>
     {% endif %}
-    <a class="login-recovery" href="{{ url_for('auth.employee_login') }}">Employee sign in</a>
-    <a class="login-recovery" href="{{ url_for('auth.login') }}">Admin sign in</a>
+    <a class="login-recovery" href="{{ url_for('auth.login') }}">Sign in</a>
   </form>
 </main>
 {% endblock %}

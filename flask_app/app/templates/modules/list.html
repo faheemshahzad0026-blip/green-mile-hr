@@ -5,72 +5,18 @@
 {% block heading_actions %}
 {% if kind == 'employees' %}
 <button type="button" class="primary" onclick="openEmployeeModal()">+ Add employee</button>
-{% elif employee_filter %}
-<a class="primary" href="{{ url_for('modules.module_list', kind=kind, employee=employee_filter, new=1) }}">+ Add for employee</a>
-{% elif kind in ['shifts', 'announcements', 'departments', 'assets', 'recruitment', 'settings'] or mod.get('add_label') %}
-<a class="primary" href="{{ url_for('modules.module_list', kind=kind, new=1) }}">{{ mod.get('add_label') or ('+ Add ' ~ mod.title|lower) }}</a>
+{% elif employee_filter or kind in ['shifts', 'announcements', 'departments', 'assets', 'recruitment', 'settings'] or mod.get('add_label') %}
+<button type="button" class="primary" onclick="openRecordModal()">{{ mod.get('add_label') or ('+ Add ' ~ (mod.title|lower)) }}</button>
 {% endif %}
 {% endblock %}
 {% block content %}
-
-{% if show_form %}
-<section class="card record-form-card" style="margin-bottom:22px">
-  <div class="card-head">
-    <div>
-      <h2>{% if edit_record %}Edit record{% else %}Add record{% endif %}</h2>
-      <p>{{ agency.company_name }}</p>
-    </div>
-    <a class="secondary" href="{% if employee_filter %}{{ url_for('modules.module_list', kind=kind, employee=employee_filter) }}{% else %}{{ url_for('modules.module_list', kind=kind) }}{% endif %}">Close</a>
-  </div>
-  <form method="post" class="record-form">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    {% if edit_record %}<input type="hidden" name="id" value="{{ edit_record.id }}">{% endif %}
-    <div class="form-grid">
-      {% for field in fields %}
-      <label {% if field.type == 'textarea' %}style="grid-column:1/-1"{% endif %}>
-        <span class="field-label">{{ field.label }}{% if field.required %}<em> *</em>{% endif %}</span>
-        {% set val = edit_record.get(field.key) if edit_record else (form_defaults.get(field.key) if form_defaults is defined else '') %}
-        {% if field.type == 'select' or field.type == 'employee' %}
-          <select name="{{ field.key }}" {% if field.required %}required{% endif %}>
-            <option value="">{{ field.placeholder or ('e.g. choose ' ~ field.label|lower) }}</option>
-            {% if field.type == 'employee' %}
-              {% for e in employees %}
-                <option value="{{ e.id }}" {% if val|string == e.id|string %}selected{% endif %}>{{ e.full_name }} · {{ e.employee_code }}</option>
-              {% endfor %}
-            {% else %}
-              {% for opt in field.options or [] %}
-                <option value="{{ opt }}" {% if val == opt %}selected{% endif %}>{{ opt }}</option>
-              {% endfor %}
-            {% endif %}
-          </select>
-        {% elif field.type == 'textarea' %}
-          <textarea name="{{ field.key }}" rows="5" placeholder="{{ field.placeholder or ('e.g. ' ~ field.label|lower) }}" {% if field.required %}required{% endif %}>{{ val }}</textarea>
-        {% else %}
-          <input
-            name="{{ field.key }}"
-            type="{{ 'number' if field.type == 'number' else ('date' if field.type == 'date' else ('time' if field.type == 'time' else ('month' if field.type == 'month' else ('email' if field.type == 'email' else 'text')))) }}"
-            value="{{ val }}"
-            placeholder="{{ field.placeholder or ('e.g. ' ~ field.label|lower) }}"
-            {% if field.required %}required{% endif %}
-          >
-        {% endif %}
-      </label>
-      {% endfor %}
-    </div>
-    <div class="record-form-actions">
-      <button class="primary" type="submit">Save record</button>
-      <a class="secondary" href="{% if employee_filter %}{{ url_for('modules.module_list', kind=kind, employee=employee_filter) }}{% else %}{{ url_for('modules.module_list', kind=kind) }}{% endif %}">Cancel</a>
-    </div>
-  </form>
-</section>
-{% endif %}
 
 <section class="card table-card{% if kind == 'employees' %} employees-table{% endif %}">
   {% if employee_filter and kind != 'employees' %}
   <div class="table-toolbar">
     <div class="toolbar-right" style="margin-left:auto">
       <a class="secondary" href="{{ url_for('modules.module_list', kind='employees') }}">← Employees</a>
-      <a class="primary" href="{{ url_for('modules.module_list', kind=kind, employee=employee_filter, new=1) }}">+ Add for employee</a>
+      <button type="button" class="primary" onclick="openRecordModal()">+ Add for employee</button>
     </div>
   </div>
   {% endif %}
@@ -114,7 +60,7 @@
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id) }}"><strong>Open profile</strong><span>Full employee workspace</span></a>
                   <button type="button" class="header-dropdown-row" data-app-open="{{ row.id }}" data-name="{{ row.name }}" data-code="{{ row.employee_code }}" data-allowed="{{ '1' if row.app_allowed else '0' }}" data-employment="{{ row.employment_status }}" data-pin="{{ row.reveal_pin }}"><strong>App access</strong><span>Allow / block · send login</span></button>
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id, _anchor='leave') }}"><strong>Leave</strong><span>Requests &amp; balance</span></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='shifts', employee=row.emp_ref, new=1) }}"><strong>Assign shift</strong><span>Schedule &amp; rest day</span></a>
+                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='shifts', employee=row.emp_ref) }}"><strong>Assign shift</strong><span>Schedule &amp; rest day</span></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='documents', employee=row.emp_ref) }}"><strong>Documents &amp; expiry</strong></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='documentRenewals', employee=row.emp_ref) }}"><strong>Document renewals</strong></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='letters', employee=row.emp_ref) }}"><strong>Letters &amp; certificates</strong></a>
@@ -139,7 +85,7 @@
             </div>
             {% else %}
             <div class="row-actions">
-              <a class="text-btn" href="{% if employee_filter %}{{ url_for('modules.module_list', kind=kind, employee=employee_filter, edit=row.id) }}{% else %}{{ url_for('modules.module_list', kind=kind, edit=row.id) }}{% endif %}">Edit</a>
+              <button type="button" class="text-btn" onclick='openRecordModal({{ row.id }}, {{ row.data|tojson }})'>Edit</button>
               <form method="post" onsubmit="return confirm('Delete this record?');" style="display:inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="delete">
@@ -172,15 +118,70 @@
         Add the first record for {{ agency.company_name }}.
       {% endif %}
     </p>
-    {% if employee_filter %}
-    <a class="text-btn" href="{{ url_for('modules.module_list', kind=kind, employee=employee_filter, new=1) }}">+ Add for employee</a>
-    {% elif kind == 'employees' %}
-    {% elif kind in ['shifts', 'announcements'] or mod.get('add_label') %}
-    <a class="text-btn" href="{{ url_for('modules.module_list', kind=kind, new=1) }}">{{ mod.get('add_label') or '+ Add record' }}</a>
+    {% if kind == 'employees' %}
+    {% elif employee_filter or kind in ['shifts', 'announcements'] or mod.get('add_label') %}
+    <button type="button" class="text-btn" onclick="openRecordModal()">{{ mod.get('add_label') or '+ Add record' }}</button>
     {% endif %}
   </div>
   {% endif %}
 </section>
+
+{% if kind != 'employees' %}
+<div class="modal-backdrop record-form-backdrop" id="recordFormModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recordFormTitle">
+    <form method="post" id="recordForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="id" id="recordFormId" value="">
+      {% if employee_filter %}<input type="hidden" name="employee" value="{{ employee_filter }}">{% endif %}
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">{{ mod.title|upper }}</div>
+          <h2 id="recordFormTitle">Add record</h2>
+          <p>{{ agency.company_name }}</p>
+        </div>
+        <button type="button" class="icon" onclick="closeRecordModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          {% for field in fields %}
+          <label {% if field.type == 'textarea' %}style="grid-column:1/-1"{% endif %}>
+            <span class="field-label">{{ field.label }}{% if field.required %}<em> *</em>{% endif %}</span>
+            {% if field.type == 'select' or field.type == 'employee' %}
+              <select name="{{ field.key }}" data-record-field="{{ field.key }}" {% if field.required %}required{% endif %}>
+                <option value="">{{ field.placeholder or ('e.g. choose ' ~ field.label|lower) }}</option>
+                {% if field.type == 'employee' %}
+                  {% for e in employees %}
+                    <option value="{{ e.id }}">{{ e.full_name }} · {{ e.employee_code }}</option>
+                  {% endfor %}
+                {% else %}
+                  {% for opt in field.options or [] %}
+                    <option value="{{ opt }}">{{ opt }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            {% elif field.type == 'textarea' %}
+              <textarea name="{{ field.key }}" data-record-field="{{ field.key }}" rows="4" placeholder="{{ field.placeholder or ('e.g. ' ~ field.label|lower) }}" {% if field.required %}required{% endif %}></textarea>
+            {% else %}
+              <input
+                name="{{ field.key }}"
+                data-record-field="{{ field.key }}"
+                type="{{ 'number' if field.type == 'number' else ('date' if field.type == 'date' else ('time' if field.type == 'time' else ('month' if field.type == 'month' else ('email' if field.type == 'email' else 'text')))) }}"
+                placeholder="{{ field.placeholder or ('e.g. ' ~ field.label|lower) }}"
+                {% if field.required %}required{% endif %}
+              >
+            {% endif %}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="closeRecordModal()">Cancel</button>
+        <button class="primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 {% if kind == 'employees' %}
 <div class="modal-backdrop employee-form-backdrop" id="employeeFormModal" hidden>
@@ -243,48 +244,61 @@
     <div class="modal-head app-access-head">
       <div>
         <div class="eyebrow">APP LOGIN</div>
-        <h2 id="appAccessTitle">App access</h2>
-        <p id="appAccessSub">Allow or block mobile / web login for this employee.</p>
+        <h1 id="appAccessTitle" class="app-access-name">Employee</h1>
+        <h3 id="appAccessSub" class="app-access-id">Employee ID —</h3>
       </div>
       <button type="button" class="app-access-close" onclick="closeAppAccessModal()" aria-label="Close">✕</button>
     </div>
     <div class="form-body app-access-body">
-      <div class="app-access-meta">
-        <div><span>Employee</span><strong id="appMetaName">—</strong></div>
-        <div><span>Employment status</span><strong id="appMetaEmployment">—</strong></div>
-        <div><span>App login</span><strong id="appMetaAllowed">—</strong></div>
+      <div class="app-access-status-form">
+        <input type="hidden" id="appStatusId" value="">
+        <label class="app-access-status-label">
+          <span>App login</span>
+          <select id="appStatusSelect" onchange="setAppStatusAjax(this.value)">
+            <option value="not_allowed">Not allowed</option>
+            <option value="allowed">Allow</option>
+          </select>
+        </label>
+        <p class="app-access-status-msg" id="appStatusMsg" hidden></p>
       </div>
+
       <p class="app-access-hint" id="appBlockedHint" hidden>
-        App login is <strong>not allowed</strong>. Employment status on the list (Active / Inactive) only means whether they still work with you — it does not control app login.
+        App login is not allowed. The employee cannot sign in until you select Allow.
+        If blocked later, they see: ID disabled. Please contact HR department.
       </p>
-      <div class="cred-box" id="appCredBox" hidden>
-        <p>Send these login details to the employee:</p>
-        <div class="cred-row"><span>Employee ID</span><strong id="appCredId">—</strong>
-          <button type="button" class="text-btn" onclick="copyText('appCredId')">Copy</button></div>
-        <div class="cred-row"><span>App PIN</span><strong id="appCredPin">—</strong>
-          <button type="button" class="text-btn" onclick="copyText('appCredPin')">Copy</button></div>
-        <p class="cred-note" id="appPinNote">PIN is shown only when newly generated. Use “Generate new PIN” if you need to resend.</p>
+
+      <div class="cred-box" id="appCredBox">
+        <label class="app-login-field">
+          <span>Login ID</span>
+          <div class="app-login-input-row">
+            <input type="text" id="appCredId" readonly value="">
+            <button type="button" class="app-icon-btn" onclick="copyInput('appCredId')" title="Copy Login ID" aria-label="Copy Login ID">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          </div>
+        </label>
+        <label class="app-login-field">
+          <span>PIN</span>
+          <div class="app-login-input-row">
+            <input type="text" id="appCredPin" readonly value="">
+            <button type="button" class="app-pin-refresh" id="appPinRefreshBtn" onclick="resetPinAjax()" title="Regenerate PIN" aria-label="Regenerate PIN">
+              <svg class="app-spin-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12a9 9 0 1 1-2.6-6.3"/>
+                <path d="M21 3v6h-6"/>
+              </svg>
+            </button>
+            <button type="button" class="app-icon-btn" onclick="copyInput('appCredPin')" title="Copy PIN" aria-label="Copy PIN">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          </div>
+        </label>
       </div>
-    </div>
-    <div class="modal-foot app-access-actions">
-      <form method="post" id="appAllowForm">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="action" value="allow_app">
-        <input type="hidden" name="id" id="appAllowId" value="">
-        <button class="primary" type="submit">Allow app access</button>
-      </form>
-      <form method="post" id="appBlockForm">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="action" value="block_app">
-        <input type="hidden" name="id" id="appBlockId" value="">
-        <button class="secondary" type="submit">Not allowed</button>
-      </form>
-      <form method="post" id="appResetForm">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="action" value="reset_pin">
-        <input type="hidden" name="id" id="appResetId" value="">
-        <button class="secondary" type="submit">Generate new PIN</button>
-      </form>
     </div>
   </div>
 </div>
@@ -293,6 +307,76 @@
 
 {% block scripts %}
 {{ super() }}
+{% if kind != 'employees' %}
+<script>
+function openRecordModal(editId, data){
+  const modal=document.getElementById('recordFormModal');
+  const form=document.getElementById('recordForm');
+  if(!modal||!form) return;
+  form.reset();
+  const idInput=document.getElementById('recordFormId');
+  const title=document.getElementById('recordFormTitle');
+  const defaults={{ (form_defaults or {})|tojson }};
+  const payload=Object.assign({}, defaults, (data&&typeof data==='object'?data:{}));
+  form.querySelectorAll('[data-record-field]').forEach(el=>{
+    const key=el.getAttribute('data-record-field');
+    let val=payload[key];
+    if(val==null||val===undefined){
+      if(key==='employee'&&payload.employeeId!=null) val=payload.employeeId;
+      else if(key==='employee'&&payload.employee!=null) val=payload.employee;
+    }
+    if(el.tagName==='SELECT'||el.tagName==='TEXTAREA'||el.tagName==='INPUT'){
+      el.value=(val==null||val===undefined)?'':String(val);
+    }
+  });
+  if(editId){
+    idInput.value=String(editId);
+    if(title) title.textContent='Edit record';
+  }else{
+    idInput.value='';
+    if(title) title.textContent='Add record';
+  }
+  modal.hidden=false;
+  document.body.style.overflow='hidden';
+  document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
+  if(window.applyPlaceholders) window.applyPlaceholders(modal);
+  const first=form.querySelector('[data-record-field]');
+  if(first) setTimeout(()=>first.focus(),50);
+}
+function closeRecordModal(){
+  const modal=document.getElementById('recordFormModal');
+  if(!modal) return;
+  modal.hidden=true;
+  document.body.style.overflow='';
+}
+if(window.__gmRecordModalClick) document.removeEventListener('click', window.__gmRecordModalClick);
+if(window.__gmRecordModalKey) document.removeEventListener('keydown', window.__gmRecordModalKey);
+window.__gmRecordModalClick=function(e){
+  if(e.target.id==='recordFormModal') closeRecordModal();
+};
+window.__gmRecordModalKey=function(e){
+  if(e.key==='Escape') closeRecordModal();
+};
+document.addEventListener('click', window.__gmRecordModalClick);
+document.addEventListener('keydown', window.__gmRecordModalKey);
+
+(function initRecordPageModal(){
+{% if show_form %}
+  {% if edit_record %}
+  openRecordModal({{ edit_record.id }}, {{ (edit_record.data or {})|tojson }});
+  {% else %}
+  openRecordModal();
+  {% endif %}
+  if(window.history&&window.history.replaceState){
+    const url=new URL(window.location.href);
+    url.searchParams.delete('new');
+    url.searchParams.delete('edit');
+    window.history.replaceState({},'',url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():''));
+  }
+{% endif %}
+})();
+</script>
+{% endif %}
 {% if kind == 'employees' %}
 <script>
 function openEmployeeModal(editId, data){
@@ -391,32 +475,22 @@ document.addEventListener('click', window.__gmActionMenuClick);
 function openAppAccessModal(el){
   const modal=document.getElementById('appAccessModal');
   if(!modal) return;
+  window.__appAccessEl=el;
   const id=el.getAttribute('data-app-open');
   const name=el.getAttribute('data-name')||'Employee';
   const code=el.getAttribute('data-code')||'—';
   const allowed=el.getAttribute('data-allowed')==='1';
-  const employment=el.getAttribute('data-employment')||'Active';
   const pin=el.getAttribute('data-pin')||'';
   document.getElementById('appAccessTitle').textContent=name;
-  document.getElementById('appAccessSub').textContent='App login for Employee ID '+code;
-  document.getElementById('appMetaName').textContent=name;
-  document.getElementById('appMetaEmployment').textContent=employment+' (listing status)';
-  document.getElementById('appMetaAllowed').textContent=allowed?'Allowed':'Not allowed';
-  document.getElementById('appAllowId').value=id;
-  document.getElementById('appBlockId').value=id;
-  document.getElementById('appResetId').value=id;
-  document.getElementById('appCredId').textContent=code;
-  const cred=document.getElementById('appCredBox');
+  document.getElementById('appAccessSub').textContent='Employee ID '+code;
+  document.getElementById('appStatusId').value=id;
+  document.getElementById('appStatusSelect').value=allowed?'allowed':'not_allowed';
+  document.getElementById('appCredId').value=code;
+  document.getElementById('appCredPin').value=pin||'••••••';
   const hint=document.getElementById('appBlockedHint');
-  const pinEl=document.getElementById('appCredPin');
-  if(allowed){
-    hint.hidden=true;
-    cred.hidden=false;
-    pinEl.textContent=pin||'•••••• (generate a new PIN to reveal)';
-  }else{
-    hint.hidden=false;
-    cred.hidden=true;
-  }
+  if(hint) hint.hidden=allowed;
+  const msg=document.getElementById('appStatusMsg');
+  if(msg){msg.hidden=true;msg.textContent='';}
   modal.hidden=false;
   document.body.style.overflow='hidden';
 }
@@ -426,10 +500,100 @@ function closeAppAccessModal(){
   modal.hidden=true;
   document.body.style.overflow='';
 }
-function copyText(id){
-  const t=document.getElementById(id)?.textContent||'';
+function copyInput(id){
+  const el=document.getElementById(id);
+  const t=(el&&(el.value||el.textContent)||'').trim();
   if(!t||t.includes('••••')) return;
-  navigator.clipboard?.writeText(t.trim());
+  navigator.clipboard?.writeText(t);
+}
+function _appAccessCsrf(){
+  return document.querySelector('meta[name="csrf-token"]')?.content
+    || document.querySelector('input[name="csrf_token"]')?.value
+    || '';
+}
+function _appAccessPost(action, extra){
+  const id=document.getElementById('appStatusId')?.value||'';
+  const body=new URLSearchParams(Object.assign({
+    csrf_token:_appAccessCsrf(),
+    action:action,
+    id:id
+  }, extra||{}));
+  return fetch({{ url_for('modules.module_list', kind='employees')|tojson }},{
+    method:'POST',
+    credentials:'same-origin',
+    headers:{
+      'Content-Type':'application/x-www-form-urlencoded',
+      'Accept':'application/json',
+      'X-Requested-With':'XMLHttpRequest',
+      'X-CSRFToken':_appAccessCsrf()
+    },
+    body:body.toString()
+  }).then(function(r){return r.json().then(function(data){return {ok:r.ok,data:data};});});
+}
+function _syncAppAllowedUI(allowed, pin){
+  const el=window.__appAccessEl;
+  if(el){
+    el.setAttribute('data-allowed', allowed?'1':'0');
+    if(pin) el.setAttribute('data-pin', pin);
+    if(el.classList.contains('icon-lock')){
+      el.classList.toggle('allowed', !!allowed);
+      el.classList.toggle('blocked', !allowed);
+    }
+  }
+  document.querySelectorAll('[data-app-open="'+document.getElementById('appStatusId').value+'"]').forEach(function(node){
+    node.setAttribute('data-allowed', allowed?'1':'0');
+    if(pin) node.setAttribute('data-pin', pin);
+    if(node.classList.contains('icon-lock')){
+      node.classList.toggle('allowed', !!allowed);
+      node.classList.toggle('blocked', !allowed);
+    }
+  });
+  const hint=document.getElementById('appBlockedHint');
+  if(hint) hint.hidden=!!allowed;
+}
+function setAppStatusAjax(status){
+  const select=document.getElementById('appStatusSelect');
+  const msg=document.getElementById('appStatusMsg');
+  if(select) select.disabled=true;
+  if(msg){msg.hidden=false;msg.textContent='Saving…';msg.className='app-access-status-msg';}
+  _appAccessPost('set_app_status',{status:status}).then(function(res){
+    if(select) select.disabled=false;
+    if(!res.ok||!res.data||!res.data.ok){
+      if(msg){msg.textContent=(res.data&&res.data.error)||'Could not update.';msg.className='app-access-status-msg is-error';}
+      return;
+    }
+    const allowed=!!res.data.allowed;
+    if(select) select.value=allowed?'allowed':'not_allowed';
+    if(res.data.pin) document.getElementById('appCredPin').value=res.data.pin;
+    if(res.data.code) document.getElementById('appCredId').value=res.data.code;
+    _syncAppAllowedUI(allowed, res.data.pin||'');
+    if(msg){msg.textContent=res.data.message||'Saved.';msg.className='app-access-status-msg is-ok';}
+  }).catch(function(){
+    if(select) select.disabled=false;
+    if(msg){msg.hidden=false;msg.textContent='Network error.';msg.className='app-access-status-msg is-error';}
+  });
+}
+function resetPinAjax(){
+  const btn=document.getElementById('appPinRefreshBtn');
+  if(!btn||btn.classList.contains('is-spinning')) return;
+  btn.classList.add('is-spinning');
+  btn.disabled=true;
+  _appAccessPost('reset_pin').then(function(res){
+    btn.classList.remove('is-spinning');
+    btn.disabled=false;
+    if(!res.ok||!res.data||!res.data.ok){
+      const msg=document.getElementById('appStatusMsg');
+      if(msg){msg.hidden=false;msg.textContent=(res.data&&res.data.error)||'Could not regenerate PIN.';msg.className='app-access-status-msg is-error';}
+      return;
+    }
+    if(res.data.pin){
+      document.getElementById('appCredPin').value=res.data.pin;
+      _syncAppAllowedUI(document.getElementById('appStatusSelect').value==='allowed', res.data.pin);
+    }
+  }).catch(function(){
+    btn.classList.remove('is-spinning');
+    btn.disabled=false;
+  });
 }
 if(window.__gmAppAccessClick) document.removeEventListener('click', window.__gmAppAccessClick);
 window.__gmAppAccessClick=function(e){

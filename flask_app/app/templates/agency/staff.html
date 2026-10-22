@@ -2,20 +2,10 @@
 {% block title %}Staff · Green Mile HR{% endblock %}
 {% block heading %}Staff{% endblock %}
 {% block description %}Create staff logins for {{ agency.company_name }}.{% endblock %}
+{% block heading_actions %}
+<button type="button" class="primary" onclick="openStaffModal()">+ Create staff</button>
+{% endblock %}
 {% block content %}
-<section class="card admin-login-settings" style="max-width:780px;margin-bottom:22px">
-  <div class="card-head"><div><h2>Create staff</h2><p>Username and password for this agency only.</p></div></div>
-  <form method="post" style="padding:0 26px 26px">
-    {{ form.hidden_tag() }}
-    <div class="form-grid">
-      <label><span class="field-label">Username <em>*</em></span>{{ form.username() }}</label>
-      <label><span class="field-label">Full name</span>{{ form.full_name() }}</label>
-      <label><span class="field-label">Password <em>*</em></span>{{ form.password() }}</label>
-      <label><span class="field-label">Confirm password <em>*</em></span>{{ form.password_confirm() }}</label>
-    </div>
-    <div style="margin-top:18px">{{ form.submit(class_='primary') }}</div>
-  </form>
-</section>
 <section class="card table-card">
   <div class="card-head"><div><h2>Team for {{ agency.company_name }}</h2><p>Agency admins and staff</p></div></div>
   <div class="table-scroll">
@@ -30,10 +20,59 @@
           <td><span class="badge {% if not u.is_active %}red{% endif %}">{% if u.is_active %}Active{% else %}Off{% endif %}</span></td>
         </tr>
       {% else %}
-        <tr><td colspan="4">No staff yet.</td></tr>
+        <tr><td colspan="4">No staff yet. <button type="button" class="text-btn" onclick="openStaffModal()">Create staff</button></td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
+<div class="modal-backdrop" id="staffFormModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="staffFormTitle">
+    <form method="post" id="staffForm">
+      {{ form.hidden_tag() }}
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">STAFF</div>
+          <h2 id="staffFormTitle">Create staff</h2>
+          <p>Username and password for this agency only.</p>
+        </div>
+        <button type="button" class="icon" onclick="closeStaffModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <label><span class="field-label">Username <em>*</em></span>{{ form.username() }}</label>
+          <label><span class="field-label">Full name</span>{{ form.full_name() }}</label>
+          <label><span class="field-label">Password <em>*</em></span>{{ form.password() }}</label>
+          <label><span class="field-label">Confirm password <em>*</em></span>{{ form.password_confirm() }}</label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="closeStaffModal()">Cancel</button>
+        {{ form.submit(class_='primary') }}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+function openStaffModal(){
+  const modal=document.getElementById('staffFormModal');
+  if(!modal) return;
+  modal.hidden=false;
+  document.body.style.overflow='hidden';
+  if(window.applyPlaceholders) window.applyPlaceholders(modal);
+}
+function closeStaffModal(){
+  const modal=document.getElementById('staffFormModal');
+  if(!modal) return;
+  modal.hidden=true;
+  document.body.style.overflow='';
+}
+document.addEventListener('click',function(e){ if(e.target.id==='staffFormModal') closeStaffModal(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeStaffModal(); });
+{% if form.errors %}openStaffModal();{% endif %}
+</script>
 {% endblock %}

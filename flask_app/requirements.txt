@@ -1,3 +1,7 @@
+# Green Mile HR — use Python 3.12, 3.13, or 3.14
+# On Windows 3.14 you MUST use Pillow 12+ (has prebuilt wheels).
+# Do not use Pillow 11.x on Python 3.14.
+
 Flask==3.1.0
 Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
@@ -9,4 +13,4 @@ PyMySQL==1.1.1
 cryptography==44.0.2
 python-dotenv==1.1.0
 Werkzeug==3.1.3
-Pillow==11.1.0
+Pillow==12.3.0

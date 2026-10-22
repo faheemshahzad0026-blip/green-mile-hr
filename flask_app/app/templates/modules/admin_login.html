@@ -2,18 +2,69 @@
 {% block title %}Account · Green Mile HR{% endblock %}
 {% block heading %}Account &amp; password{% endblock %}
 {% block description %}Update the details shown in your header profile menu.{% endblock %}
+{% block heading_actions %}
+<button type="button" class="primary" onclick="openAccountModal()">Edit account</button>
+{% endblock %}
 {% block content %}
-<section class="card admin-login-settings">
-  <form method="post" style="padding:0 26px 26px">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="form-grid">
-      <label><span class="field-label">Username</span><input name="username" value="{{ current_user.username }}" required minlength="3" maxlength="40" placeholder="e.g. ahmed.khan"></label>
-      <label><span class="field-label">Email</span><input name="email" type="email" value="{{ current_user.email or '' }}" maxlength="160" placeholder="e.g. ahmed.khan@email.com"></label>
-      <label><span class="field-label">New password</span><input name="password" type="password" maxlength="128" placeholder="e.g. ••••••••"></label>
-      <label><span class="field-label">Confirm password</span><input name="confirm" type="password" maxlength="128" placeholder="e.g. ••••••••"></label>
-    </div>
-    <p class="admin-login-note">Your name and email appear in the header account dropdown.</p>
-    <button class="primary" type="submit">Save account</button>
-  </form>
+<section class="card">
+  <div class="card-head">
+    <div><h2>Your account</h2><p>Username and email appear in the header account dropdown.</p></div>
+  </div>
+  <div class="employee-file-profile" style="padding-bottom:22px">
+    <div><span>Username</span><strong>{{ current_user.username }}</strong></div>
+    <div><span>Email</span><strong>{{ current_user.email or '—' }}</strong></div>
+    <div><span>Role</span><strong>{{ current_user.role.replace('_', ' ') if current_user.role else '—' }}</strong></div>
+  </div>
 </section>
+
+<div class="modal-backdrop" id="accountFormModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="accountFormTitle">
+    <form method="post" id="accountForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">ACCOUNT</div>
+          <h2 id="accountFormTitle">Edit account</h2>
+          <p>Leave password blank to keep the current one.</p>
+        </div>
+        <button type="button" class="icon" onclick="closeAccountModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <label><span class="field-label">Username</span><input name="username" value="{{ current_user.username }}" required minlength="3" maxlength="40" placeholder="e.g. ahmed.khan"></label>
+          <label><span class="field-label">Email</span><input name="email" type="email" value="{{ current_user.email or '' }}" maxlength="160" placeholder="e.g. ahmed.khan@email.com"></label>
+          <label><span class="field-label">New password</span><input name="password" type="password" maxlength="128" placeholder="e.g. ••••••••"></label>
+          <label><span class="field-label">Confirm password</span><input name="confirm" type="password" maxlength="128" placeholder="e.g. ••••••••"></label>
+        </div>
+        <p class="admin-login-note">Your name and email appear in the header account dropdown.</p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="closeAccountModal()">Cancel</button>
+        <button class="primary" type="submit">Save account</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+function openAccountModal(){
+  const modal=document.getElementById('accountFormModal');
+  if(!modal) return;
+  modal.hidden=false;
+  document.body.style.overflow='hidden';
+  if(window.applyPlaceholders) window.applyPlaceholders(modal);
+  const first=modal.querySelector('[name="username"]');
+  if(first) setTimeout(()=>first.focus(),50);
+}
+function closeAccountModal(){
+  const modal=document.getElementById('accountFormModal');
+  if(!modal) return;
+  modal.hidden=true;
+  document.body.style.overflow='';
+}
+document.addEventListener('click',function(e){ if(e.target.id==='accountFormModal') closeAccountModal(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeAccountModal(); });
+</script>
 {% endblock %}

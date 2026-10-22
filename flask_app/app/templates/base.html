@@ -7,12 +7,12 @@
   <script>
     try{if(sessionStorage.getItem('gmNav'))document.documentElement.classList.add('gm-loading');}catch(e){}
   </script>
-  {% if brand_agency and brand_agency.logo_path %}
-  <link rel="icon" href="{{ url_for('static', filename=brand_agency.logo_path) }}" sizes="any">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename=brand_agency.logo_path) }}">
+  {% if agency_favicon_url %}
+  <link rel="icon" href="{{ agency_favicon_url }}" sizes="any" id="gmFavicon">
+  <link rel="apple-touch-icon" href="{{ agency_favicon_url }}" id="gmAppleIcon">
   {% else %}
-  <link rel="icon" href="{{ url_for('static', filename='green-mile-favicon.svg') }}" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='green-mile-logo.png') }}">
+  <link rel="icon" href="{{ url_for('static', filename='green-mile-favicon.svg') }}" type="image/svg+xml" id="gmFavicon">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='green-mile-logo.png') }}" id="gmAppleIcon">
   {% endif %}
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">

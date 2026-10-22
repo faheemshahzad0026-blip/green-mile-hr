@@ -160,6 +160,25 @@
       document.title = doc.title || document.title;
       document.body.className = doc.body.className || "";
 
+      // Keep agency logo as favicon across soft navigation
+      function syncIcon(id, rel) {
+        const next = doc.querySelector('link#' + id) || doc.querySelector('link[rel="' + rel + '"]');
+        if (!next || !next.getAttribute("href")) return;
+        let cur = document.getElementById(id) || document.querySelector('link[rel="' + rel + '"]');
+        if (!cur) {
+          cur = document.createElement("link");
+          cur.id = id;
+          cur.rel = rel;
+          document.head.appendChild(cur);
+        }
+        cur.href = next.getAttribute("href");
+        if (next.getAttribute("type")) cur.type = next.getAttribute("type");
+        else cur.removeAttribute("type");
+        if (next.getAttribute("sizes")) cur.setAttribute("sizes", next.getAttribute("sizes"));
+      }
+      syncIcon("gmFavicon", "icon");
+      syncIcon("gmAppleIcon", "apple-touch-icon");
+
       const loader = ensureLoader();
       Array.from(document.body.childNodes).forEach(function (n) {
         if (n !== loader) n.remove();

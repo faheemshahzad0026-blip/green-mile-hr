@@ -13,6 +13,7 @@ from app.modules import bp
 from app.utils import (
     get_active_agency,
     next_employee_code,
+    save_agency_logo,
     save_employee_document_file,
     write_audit,
 )
@@ -859,26 +860,68 @@ def _tool_page(kind, agency):
 @login_required
 @admin_required
 def admin_login_settings():
+    agency = get_active_agency()
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
+        full_name = (request.form.get("full_name") or "").strip()
         email = (request.form.get("email") or "").strip()
         password = request.form.get("password") or ""
         confirm = request.form.get("confirm") or ""
+        agency_name = (request.form.get("agency_name") or "").strip()
+        company_name = (request.form.get("company_name") or "").strip()
+        company_email = (request.form.get("company_email") or "").strip()
+        company_phone = (request.form.get("company_phone") or "").strip()
+        company_address = (request.form.get("company_address") or "").strip()
+        error = None
         if len(username) < 3:
-            flash("Username must be at least 3 characters.", "danger")
+            error = "Username must be at least 3 characters."
+        elif password and len(password) < 6:
+            error = "Password must be at least 6 characters."
         elif password and password != confirm:
-            flash("Passwords do not match.", "danger")
+            error = "Passwords do not match."
         elif User.query.filter(User.username == username, User.id != current_user.id).first():
-            flash("Username already taken.", "danger")
-        else:
-            current_user.username = username
-            current_user.email = email or None
-            if password:
-                current_user.set_password(password)
-            db.session.commit()
-            flash("Login settings updated.", "success")
-            return redirect(url_for("modules.admin_login_settings"))
-    return render_template("modules/admin_login.html")
+            error = "Username already taken."
+        elif agency and (len(agency_name) < 2 or len(company_name) < 2):
+            error = "Agency name and company name are required."
+
+        if error:
+            flash(error, "danger")
+            return render_template(
+                "modules/admin_login.html", agency=agency, open_form=True
+            )
+
+        current_user.username = username
+        current_user.full_name = full_name or None
+        current_user.email = email or None
+        if password:
+            current_user.set_password(password)
+
+        if agency:
+            agency.name = agency_name
+            agency.company_name = company_name
+            agency.company_email = company_email or None
+            agency.company_phone = company_phone or None
+            agency.company_address = company_address or None
+            try:
+                logo_path = save_agency_logo(request.files.get("logo"), agency.id)
+                if logo_path:
+                    agency.logo_path = logo_path
+            except ValueError as exc:
+                db.session.rollback()
+                flash(str(exc), "danger")
+                return render_template(
+                    "modules/admin_login.html", agency=agency, open_form=True
+                )
+            write_audit(
+                "agency_profile_update",
+                f"Updated agency profile {agency.name}",
+                agency_id=agency.id,
+            )
+
+        db.session.commit()
+        flash("Account settings updated.", "success")
+        return redirect(url_for("modules.admin_login_settings"))
+    return render_template("modules/admin_login.html", agency=agency)
 
 
 @bp.route("/backup.json")

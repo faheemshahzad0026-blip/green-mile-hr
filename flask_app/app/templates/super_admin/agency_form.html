@@ -22,7 +22,7 @@
     <div><span>Phone</span><strong>{{ agency.company_phone or '—' }}</strong></div>
     <div><span>Status</span><strong>{% if agency.is_active %}Active{% else %}Inactive{% endif %}</strong></div>
     {% if agency.logo_path %}
-    <div><span>Logo</span><strong><img src="{{ url_for('static', filename=agency.logo_path) }}" alt="" style="height:40px;border-radius:8px;vertical-align:middle"></strong></div>
+    <div><span>Logo</span><strong><img src="{{ url_for('static', filename=agency.logo_path) }}" alt="" class="account-logo-preview"></strong></div>
     {% endif %}
   </div>
   {% else %}
@@ -54,16 +54,26 @@
           <label><span class="field-label">Company email</span>{{ form.company_email() }}</label>
           <label><span class="field-label">Company phone</span>{{ form.company_phone() }}</label>
           <label style="grid-column:1/-1"><span class="field-label">Company address</span>{{ form.company_address(rows=2) }}</label>
-          <label><span class="field-label">Logo</span>{{ form.logo() }}
-            {% if agency and agency.logo_path %}
-              <img src="{{ url_for('static', filename=agency.logo_path) }}" alt="" style="height:48px;margin-top:8px;border-radius:8px">
-            {% endif %}
-          </label>
+          <div class="logo-editor" data-logo-editor {% if agency and agency.logo_path %}data-current="{{ url_for('static', filename=agency.logo_path) }}"{% endif %}>
+            <span class="field-label">Agency logo</span>
+            {{ form.logo(class_='logo-editor-input', accept='.png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif') }}
+          </div>
           <label class="login-show" style="align-self:end">{{ form.is_active() }} Active</label>
           {% if not agency %}
           <label><span class="field-label">Agency admin username <em>*</em></span>{{ form.admin_username() }}</label>
           <label><span class="field-label">Agency admin full name</span>{{ form.admin_full_name() }}</label>
-          <label><span class="field-label">Agency admin password <em>*</em></span>{{ form.admin_password() }}</label>
+          <label>
+            <span class="field-label">Agency admin password <em>*</em></span>
+            <div class="login-pass-wrap">
+              {{ form.admin_password(class_='login-pass-input', id='agencyAdminPassword') }}
+              <button type="button" class="login-eye" data-toggle-pass="agencyAdminPassword" aria-label="Show password" aria-pressed="false" title="Show password">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <path class="eye-shape" fill="currentColor" d="M12 5c-5 0-9.3 3.1-11 7 1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                  <path class="eye-slash" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M4 4l16 16"/>
+                </svg>
+              </button>
+            </div>
+          </label>
           {% endif %}
         </div>
       </div>
@@ -84,6 +94,7 @@ function openAgencyModal(){
   modal.hidden=false;
   document.body.style.overflow='hidden';
   if(window.applyPlaceholders) window.applyPlaceholders(modal);
+  if(window.LogoEditor) window.LogoEditor.init(modal);
 }
 function closeAgencyModal(){
   const modal=document.getElementById('agencyFormModal');
@@ -92,7 +103,24 @@ function closeAgencyModal(){
   document.body.style.overflow='';
 }
 document.addEventListener('click',function(e){ if(e.target.id==='agencyFormModal') closeAgencyModal(); });
-document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeAgencyModal(); });
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape') return;
+  const logoOpen=document.querySelector('.logo-editor-backdrop:not([hidden])');
+  if(logoOpen) return;
+  closeAgencyModal();
+});
+document.querySelectorAll('[data-toggle-pass]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    const input=document.getElementById(btn.getAttribute('data-toggle-pass'));
+    if(!input) return;
+    const show=input.type==='password';
+    input.type=show?'text':'password';
+    btn.classList.toggle('is-visible', show);
+    btn.setAttribute('aria-pressed', show?'true':'false');
+    btn.setAttribute('aria-label', show?'Hide password':'Show password');
+    btn.title=show?'Hide password':'Show password';
+  });
+});
 {% if form.errors %}openAgencyModal();{% endif %}
 </script>
 {% endblock %}

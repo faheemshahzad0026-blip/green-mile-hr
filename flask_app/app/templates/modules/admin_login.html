@@ -1,25 +1,46 @@
 {% extends "layout_admin.html" %}
 {% block title %}Account · Green Mile HR{% endblock %}
-{% block heading %}Account &amp; password{% endblock %}
-{% block description %}Update the details shown in your header profile menu.{% endblock %}
+{% block heading %}Account &amp; agency{% endblock %}
+{% block description %}Update your login details{% if agency %}, agency profile and logo{% endif %}.{% endblock %}
 {% block heading_actions %}
 <button type="button" class="primary" onclick="openAccountModal()">Edit account</button>
 {% endblock %}
 {% block content %}
 <section class="card">
   <div class="card-head">
-    <div><h2>Your account</h2><p>Username and email appear in the header account dropdown.</p></div>
+    <div><h2>Your account</h2><p>Shown in the header profile menu.</p></div>
   </div>
   <div class="employee-file-profile" style="padding-bottom:22px">
     <div><span>Username</span><strong>{{ current_user.username }}</strong></div>
+    <div><span>Full name</span><strong>{{ current_user.full_name or '—' }}</strong></div>
     <div><span>Email</span><strong>{{ current_user.email or '—' }}</strong></div>
     <div><span>Role</span><strong>{{ current_user.role.replace('_', ' ') if current_user.role else '—' }}</strong></div>
   </div>
 </section>
 
+{% if agency %}
+<section class="card" style="margin-top:18px">
+  <div class="card-head">
+    <div><h2>Agency profile</h2><p>Sidebar brand name and logo for this workspace.</p></div>
+  </div>
+  <div class="employee-file-profile" style="padding-bottom:22px">
+    <div><span>Agency</span><strong>{{ agency.name }}</strong></div>
+    <div><span>Company</span><strong>{{ agency.company_name }}</strong></div>
+    <div><span>Email</span><strong>{{ agency.company_email or '—' }}</strong></div>
+    <div><span>Phone</span><strong>{{ agency.company_phone or '—' }}</strong></div>
+    <div style="grid-column:1/-1"><span>Address</span><strong>{{ agency.company_address or '—' }}</strong></div>
+    <div><span>Logo</span><strong>
+      {% if agency.logo_path %}
+      <img src="{{ url_for('static', filename=agency.logo_path) }}" alt="" class="account-logo-preview">
+      {% else %}—{% endif %}
+    </strong></div>
+  </div>
+</section>
+{% endif %}
+
 <div class="modal-backdrop" id="accountFormModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="accountFormTitle">
-    <form method="post" id="accountForm">
+    <form method="post" enctype="multipart/form-data" id="accountForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="modal-head">
         <div>
@@ -31,16 +52,53 @@
       </div>
       <div class="form-body">
         <div class="form-grid">
-          <label><span class="field-label">Username</span><input name="username" value="{{ current_user.username }}" required minlength="3" maxlength="40" placeholder="e.g. ahmed.khan"></label>
-          <label><span class="field-label">Email</span><input name="email" type="email" value="{{ current_user.email or '' }}" maxlength="160" placeholder="e.g. ahmed.khan@email.com"></label>
-          <label><span class="field-label">New password</span><input name="password" type="password" maxlength="128" placeholder="e.g. ••••••••"></label>
-          <label><span class="field-label">Confirm password</span><input name="confirm" type="password" maxlength="128" placeholder="e.g. ••••••••"></label>
+          <label><span class="field-label">Username <em>*</em></span><input name="username" value="{{ current_user.username }}" required minlength="3" maxlength="40" autocomplete="username" placeholder="e.g. ahmed.khan"></label>
+          <label><span class="field-label">Full name</span><input name="full_name" value="{{ current_user.full_name or '' }}" maxlength="160" placeholder="e.g. Ahmed Khan"></label>
+          <label style="grid-column:1/-1"><span class="field-label">Email</span><input name="email" type="email" value="{{ current_user.email or '' }}" maxlength="160" autocomplete="email" placeholder="e.g. ahmed.khan@email.com"></label>
+          <label>
+            <span class="field-label">New password</span>
+            <div class="login-pass-wrap">
+              <input class="login-pass-input" name="password" id="accountPassword" type="password" maxlength="128" minlength="6" autocomplete="new-password" placeholder="e.g. ••••••••">
+              <button type="button" class="login-eye" data-toggle-pass="accountPassword" aria-label="Show password" aria-pressed="false" title="Show password">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <path class="eye-shape" fill="currentColor" d="M12 5c-5 0-9.3 3.1-11 7 1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                  <path class="eye-slash" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M4 4l16 16"/>
+                </svg>
+              </button>
+            </div>
+          </label>
+          <label>
+            <span class="field-label">Confirm password</span>
+            <div class="login-pass-wrap">
+              <input class="login-pass-input" name="confirm" id="accountConfirm" type="password" maxlength="128" minlength="6" autocomplete="new-password" placeholder="e.g. ••••••••">
+              <button type="button" class="login-eye" data-toggle-pass="accountConfirm" aria-label="Show password" aria-pressed="false" title="Show password">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <path class="eye-shape" fill="currentColor" d="M12 5c-5 0-9.3 3.1-11 7 1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                  <path class="eye-slash" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M4 4l16 16"/>
+                </svg>
+              </button>
+            </div>
+          </label>
         </div>
-        <p class="admin-login-note">Your name and email appear in the header account dropdown.</p>
+
+        {% if agency %}
+        <div class="account-section-label">Agency details</div>
+        <div class="form-grid">
+          <label><span class="field-label">Agency name <em>*</em></span><input name="agency_name" value="{{ agency.name }}" required maxlength="160" placeholder="e.g. Green Mile Dubai"></label>
+          <label><span class="field-label">Company name <em>*</em></span><input name="company_name" value="{{ agency.company_name }}" required maxlength="200" placeholder="e.g. Green Mile Recycling LLC"></label>
+          <label><span class="field-label">Company email</span><input name="company_email" type="email" value="{{ agency.company_email or '' }}" maxlength="160" placeholder="e.g. hr@company.ae"></label>
+          <label><span class="field-label">Company phone</span><input name="company_phone" value="{{ agency.company_phone or '' }}" maxlength="60" placeholder="e.g. +971 4 123 4567"></label>
+          <label style="grid-column:1/-1"><span class="field-label">Company address</span><textarea name="company_address" rows="2" maxlength="1000" placeholder="e.g. Dubai Industrial City">{{ agency.company_address or '' }}</textarea></label>
+          <div class="logo-editor" data-logo-editor {% if agency.logo_path %}data-current="{{ url_for('static', filename=agency.logo_path) }}"{% endif %}>
+            <span class="field-label">Agency logo</span>
+            <input class="logo-editor-input" name="logo" type="file" accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif">
+          </div>
+        </div>
+        {% endif %}
       </div>
       <div class="modal-foot">
         <button type="button" class="secondary" onclick="closeAccountModal()">Cancel</button>
-        <button class="primary" type="submit">Save account</button>
+        <button class="primary" type="submit">Save changes</button>
       </div>
     </form>
   </div>
@@ -55,6 +113,7 @@ function openAccountModal(){
   modal.hidden=false;
   document.body.style.overflow='hidden';
   if(window.applyPlaceholders) window.applyPlaceholders(modal);
+  if(window.LogoEditor) window.LogoEditor.init(modal);
   const first=modal.querySelector('[name="username"]');
   if(first) setTimeout(()=>first.focus(),50);
 }
@@ -65,6 +124,25 @@ function closeAccountModal(){
   document.body.style.overflow='';
 }
 document.addEventListener('click',function(e){ if(e.target.id==='accountFormModal') closeAccountModal(); });
-document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeAccountModal(); });
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape') return;
+  if(document.querySelector('.logo-editor-backdrop:not([hidden])')) return;
+  closeAccountModal();
+});
+
+document.querySelectorAll('[data-toggle-pass]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    const input=document.getElementById(btn.getAttribute('data-toggle-pass'));
+    if(!input) return;
+    const show=input.type==='password';
+    input.type=show?'text':'password';
+    btn.classList.toggle('is-visible', show);
+    btn.setAttribute('aria-pressed', show?'true':'false');
+    btn.setAttribute('aria-label', show?'Hide password':'Show password');
+    btn.title=show?'Hide password':'Show password';
+  });
+});
+
+{% if open_form %}openAccountModal();{% endif %}
 </script>
 {% endblock %}

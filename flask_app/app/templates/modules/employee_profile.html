@@ -16,6 +16,16 @@
     </div>
     <span class="soft-badge">{% if data.status %}{{ data.status }}{% else %}—{% endif %}</span>
   </div>
+  {% if data.profilePhoto %}
+  <div class="emp-photo-card" style="border-bottom:1px solid var(--line);margin-bottom:8px">
+    <div class="emp-photo-preview">
+      <img src="{{ url_for('static', filename=data.profilePhoto) }}" alt="Profile photo">
+    </div>
+    <div class="emp-photo-meta">
+      <p>Profile photo uploaded from the employee app.</p>
+    </div>
+  </div>
+  {% endif %}
   <div class="employee-file-profile">
     <div><span>Full name</span><strong>{{ data.name or '—' }}</strong></div>
     <div><span>Employee ID</span><strong>{{ data.code or '—' }}</strong></div>

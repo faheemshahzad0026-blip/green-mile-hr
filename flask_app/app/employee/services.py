@@ -996,6 +996,7 @@ def employee_notifications(emp: Employee, limit: int = 20) -> list[dict]:
             title = f"HR help desk · {d.get('status') or ''}"
             message = d.get("subject") or "HR replied to your request."
             event = {"status": d.get("status"), "reply": d.get("reply")}
+            href = url_for("employee.help_desk")
         else:
             continue
 

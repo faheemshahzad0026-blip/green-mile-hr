@@ -5,7 +5,7 @@
 {% if tab == 'corrections' %}
 Review late attendance requests. Approve → Present · Reject → Absent.
 {% else %}
-Employee punches for {{ agency.company_name }} (view only). Selfie and GPS evidence are linked when available.
+Daily employee punches for {{ agency.company_name }}. Open In/Out selfies and GPS maps from each row.
 {% endif %}
 {% endblock %}
 {% block content %}
@@ -14,13 +14,19 @@ Employee punches for {{ agency.company_name }} (view only). Selfie and GPS evide
   <a class="{% if tab == 'corrections' %}active{% endif %}" href="{{ url_for('modules.attendance_hub', tab='corrections') }}">Corrections</a>
 </nav>
 
+{% if tab == 'daily' %}
+<p class="att-daily-note">Each row is one employee day. Use the selfie thumbnails and map chips to review check-in and check-out evidence.</p>
+{% endif %}
+
 <section class="card table-card">
   {% if rows %}
   <div class="table-scroll">
-    <table>
+    <table class="{% if tab == 'daily' %}att-daily-table{% endif %}">
       <thead>
         <tr>
-          {% for col in mod.columns %}<th>{{ col|upper }}</th>{% endfor %}
+          {% for col in mod.columns %}
+          <th>{% if col == 'selfie' %}SELFIES{% elif col == 'location' %}GPS{% else %}{{ col|upper }}{% endif %}</th>
+          {% endfor %}
           {% if tab == 'corrections' %}<th>REVIEW</th>{% endif %}
         </tr>
       </thead>

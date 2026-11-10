@@ -1,0 +1,123 @@
+{% extends "layout_employee.html" %}
+{% block title %}Help desk · Green Mile HR{% endblock %}
+{% block page_title %}Help desk{% endblock %}
+{% block heading %}Help desk{% endblock %}
+{% block description %}Send a request to HR and track replies on your own tickets.{% endblock %}
+{% block heading_actions %}
+<button type="button" class="primary" onclick="document.getElementById('helpRequestModal').hidden=false;document.body.style.overflow='hidden'">+ New request</button>
+{% endblock %}
+{% block content %}
+<section class="card table-card">
+  <div class="card-head">
+    <div>
+      <h2>My requests</h2>
+      <p>Only your own help desk tickets are listed here.</p>
+    </div>
+  </div>
+  {% if tickets %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>DATE</th>
+          <th>CATEGORY</th>
+          <th>SUBJECT</th>
+          <th>STATUS</th>
+          <th>HR REPLY</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tickets %}
+        <tr>
+          <td><strong>{{ t.get('date') or '—' }}</strong></td>
+          <td>{{ t.get('category') or '—' }}</td>
+          <td>
+            <strong>{{ t.get('subject') or '—' }}</strong>
+            {% if t.get('message') %}
+            <div class="cell-clip" title="{{ t.get('message') }}">{{ t.get('message') }}</div>
+            {% endif %}
+          </td>
+          <td><span class="badge">{{ t.get('status') or 'Pending' }}</span></td>
+          <td>
+            {% if t.get('reply') %}
+            <div class="help-reply-box">
+              <span>HR reply</span>
+              <p>{{ t.get('reply') }}</p>
+            </div>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="table-bottom"><span>{{ tickets|length }} request(s)</span></div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">?</div>
+    <h3>No help requests yet</h3>
+    <p>Ask HR about salary, attendance, leave, documents, or workplace concerns.</p>
+    <button type="button" class="text-btn" onclick="document.getElementById('helpRequestModal').hidden=false;document.body.style.overflow='hidden'">+ New request</button>
+  </div>
+  {% endif %}
+</section>
+
+<div class="modal-backdrop" id="helpRequestModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpRequestTitle">
+    <form method="post" data-full-nav="1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">HELP DESK</div>
+          <h2 id="helpRequestTitle">New HR request</h2>
+          <p>HR will review and reply in this list.</p>
+        </div>
+        <button type="button" class="icon" onclick="document.getElementById('helpRequestModal').hidden=true;document.body.style.overflow=''" aria-label="Close">✕</button>
+      </div>
+      <div class="form-body">
+        <div class="help-form-grid form-grid">
+          <label>
+            <span class="field-label">Category<em> *</em></span>
+            <select name="category" required>
+              {% for c in categories %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label style="grid-column:1/-1">
+            <span class="field-label">Subject<em> *</em></span>
+            <input type="text" name="subject" maxlength="200" required placeholder="Short summary">
+          </label>
+          <label style="grid-column:1/-1">
+            <span class="field-label">Message<em> *</em></span>
+            <textarea name="message" rows="5" maxlength="4000" required placeholder="Explain what you need from HR"></textarea>
+          </label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="secondary" onclick="document.getElementById('helpRequestModal').hidden=true;document.body.style.overflow=''">Cancel</button>
+        <button class="primary" type="submit">Send to HR</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('click',function(e){
+  if(e.target.id==='helpRequestModal'){
+    document.getElementById('helpRequestModal').hidden=true;
+    document.body.style.overflow='';
+  }
+});
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape') return;
+  var m=document.getElementById('helpRequestModal');
+  if(m && !m.hidden){ m.hidden=true; document.body.style.overflow=''; }
+});
+</script>
+{% endblock %}

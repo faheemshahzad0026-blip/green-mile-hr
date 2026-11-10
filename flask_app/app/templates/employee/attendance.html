@@ -174,14 +174,17 @@
       </div>
 
       <div class="punch-selfie-box">
+        <video id="selfieVideo" playsinline autoplay muted hidden></video>
+        <canvas id="selfieCanvas" hidden></canvas>
         <img id="selfiePreview" alt="Selfie preview" hidden>
-        <div class="selfie-empty" id="selfieEmpty">Take a selfie with your phone camera</div>
+        <div class="selfie-empty" id="selfieEmpty">Open the camera for a live selfie (not the photo gallery).</div>
         <input type="file" id="selfieInput" accept="image/*" capture="user" hidden>
         <div class="selfie-actions">
           <button type="button" class="secondary" id="selfieStart">Open camera</button>
+          <button type="button" class="primary" id="selfieSnap" hidden>Capture selfie</button>
           <button type="button" class="text-btn" id="selfieRetake" hidden>Retake</button>
         </div>
-        <p class="punch-note">Uses the system camera app when available. Photo is for HR evidence only.</p>
+        <p class="punch-note">Opens the live camera on this device. Gallery is not used for attendance.</p>
       </div>
 
       <div class="alert error" id="attError" hidden role="alert"></div>
@@ -240,13 +243,16 @@
   const busyEl=document.getElementById('attBusy');
   const preview=document.getElementById('selfiePreview');
   const empty=document.getElementById('selfieEmpty');
+  const video=document.getElementById('selfieVideo');
+  const canvas=document.getElementById('selfieCanvas');
   const fileInput=document.getElementById('selfieInput');
   const btnStart=document.getElementById('selfieStart');
+  const btnSnap=document.getElementById('selfieSnap');
   const btnRetake=document.getElementById('selfieRetake');
   const btnConfirm=document.getElementById('punchConfirm');
   const punchModal=document.getElementById('punchModal');
   const punchTitle=document.getElementById('punchTitle');
-  let point=null, selfieBlob=null, busy=false, punchAction='in';
+  let point=null, selfieBlob=null, busy=false, punchAction='in', mediaStream=null;
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||isIOS;
 
@@ -375,12 +381,68 @@
 
   document.getElementById('gpsRefresh')?.addEventListener('click', requestLocationPermission);
 
+  function stopCamera(){
+    if(mediaStream){
+      mediaStream.getTracks().forEach(function(t){ try{t.stop();}catch(_){} });
+      mediaStream=null;
+    }
+    if(video){ video.hidden=true; video.srcObject=null; }
+    if(btnSnap) btnSnap.hidden=true;
+  }
   function resetSelfie(){
     selfieBlob=null;
+    stopCamera();
     if(preview){ preview.hidden=true; preview.removeAttribute('src'); }
     if(empty) empty.hidden=false;
     if(btnRetake) btnRetake.hidden=true;
+    if(btnStart) btnStart.hidden=false;
     if(fileInput) fileInput.value='';
+  }
+  async function openLiveCamera(){
+    showErr('');
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      // Fallback for older browsers: capture=user still prefers camera
+      if(fileInput){ fileInput.setAttribute('capture','user'); fileInput.click(); }
+      return;
+    }
+    try{
+      stopCamera();
+      mediaStream=await navigator.mediaDevices.getUserMedia({
+        audio:false,
+        video:{ facingMode:{ ideal:'user' }, width:{ ideal:720 }, height:{ ideal:720 } }
+      });
+      if(!video) throw new Error('Camera preview unavailable.');
+      video.srcObject=mediaStream;
+      video.hidden=false;
+      if(empty) empty.hidden=true;
+      if(preview) preview.hidden=true;
+      if(btnSnap) btnSnap.hidden=false;
+      if(btnStart) btnStart.hidden=true;
+      if(btnRetake) btnRetake.hidden=false;
+    }catch(e){
+      showErr('Could not open the camera. Allow camera permission, then try again.');
+      if(fileInput){ fileInput.setAttribute('capture','user'); fileInput.click(); }
+    }
+  }
+  function captureFromVideo(){
+    if(!video || !canvas || !mediaStream) return;
+    const w=video.videoWidth||640, h=video.videoHeight||640;
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    if(!ctx) return;
+    ctx.drawImage(video,0,0,w,h);
+    canvas.toBlob(function(blob){
+      if(!blob){ showErr('Could not capture selfie. Try again.'); return; }
+      selfieBlob=blob;
+      const url=URL.createObjectURL(blob);
+      if(preview){ preview.src=url; preview.hidden=false; }
+      stopCamera();
+      if(empty) empty.hidden=true;
+      if(btnSnap) btnSnap.hidden=true;
+      if(btnStart) btnStart.hidden=true;
+      if(btnRetake) btnRetake.hidden=false;
+      showErr('');
+    },'image/jpeg',0.9);
   }
 
   function openPunchModal(action){
@@ -402,6 +464,7 @@
     punchModal.hidden=true;
     document.body.style.overflow='';
     resetSelfie();
+    stopCamera();
   }
 
   document.getElementById('openPunchIn')?.addEventListener('click', function(){ openPunchModal('in'); });
@@ -410,20 +473,23 @@
   document.getElementById('punchCancel')?.addEventListener('click', closePunchModal);
   document.addEventListener('click', function(e){ if(e.target.id==='punchModal') closePunchModal(); });
 
-  btnStart?.addEventListener('click', function(){ fileInput?.click(); });
-  btnRetake?.addEventListener('click', function(){ resetSelfie(); fileInput?.click(); });
+  btnStart?.addEventListener('click', function(){ openLiveCamera(); });
+  btnSnap?.addEventListener('click', captureFromVideo);
+  btnRetake?.addEventListener('click', function(){ resetSelfie(); openLiveCamera(); });
 
   fileInput?.addEventListener('change', function(){
     const file=fileInput.files && fileInput.files[0];
     if(!file) return;
     if(!file.type || !file.type.startsWith('image/')){
-      showErr('Please take or choose a photo.');
+      showErr('Please take a selfie with the camera.');
       return;
     }
+    stopCamera();
     selfieBlob=file;
     const url=URL.createObjectURL(file);
     if(preview){ preview.src=url; preview.hidden=false; }
     if(empty) empty.hidden=true;
+    if(btnStart) btnStart.hidden=true;
     if(btnRetake) btnRetake.hidden=false;
     showErr('');
   });

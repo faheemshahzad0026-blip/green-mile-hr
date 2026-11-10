@@ -318,9 +318,21 @@
           </div>
         </label>
         <label class="app-login-field">
-          <span>PIN</span>
+          <span>Access code (PIN)</span>
           <div class="app-login-input-row">
-            <input type="text" id="appCredPin" readonly value="">
+            <input type="password" id="appCredPin" readonly value="" autocomplete="off">
+            <button type="button" class="app-icon-btn" id="appPinEyeBtn" onclick="toggleAppPinVisibility()" title="Show access code" aria-label="Show access code" aria-pressed="false">
+              <svg class="app-eye-open" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="app-eye-closed" hidden viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94"/>
+                <path d="M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 7 11 7a21.9 21.9 0 0 1-2.16 3.19"/>
+                <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88"/>
+                <path d="M1 1l22 22"/>
+              </svg>
+            </button>
             <button type="button" class="app-pin-refresh" id="appPinRefreshBtn" onclick="resetPinAjax()" title="Regenerate PIN" aria-label="Regenerate PIN">
               <svg class="app-spin-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 12a9 9 0 1 1-2.6-6.3"/>
@@ -517,6 +529,7 @@ function openAppAccessModal(el){
   document.getElementById('appStatusSelect').value=allowed?'allowed':'not_allowed';
   document.getElementById('appCredId').value=code;
   document.getElementById('appCredPin').value=pin||'••••••';
+  setAppPinVisible(false);
   const hint=document.getElementById('appBlockedHint');
   if(hint) hint.hidden=allowed;
   const msg=document.getElementById('appStatusMsg');
@@ -524,9 +537,28 @@ function openAppAccessModal(el){
   modal.hidden=false;
   document.body.style.overflow='hidden';
 }
+function setAppPinVisible(show){
+  const input=document.getElementById('appCredPin');
+  const btn=document.getElementById('appPinEyeBtn');
+  if(!input||!btn) return;
+  input.type=show?'text':'password';
+  btn.setAttribute('aria-pressed', show?'true':'false');
+  btn.title=show?'Hide access code':'Show access code';
+  btn.setAttribute('aria-label', show?'Hide access code':'Show access code');
+  const open=btn.querySelector('.app-eye-open');
+  const closed=btn.querySelector('.app-eye-closed');
+  if(open) open.hidden=!!show;
+  if(closed) closed.hidden=!show;
+}
+function toggleAppPinVisibility(){
+  const input=document.getElementById('appCredPin');
+  if(!input) return;
+  setAppPinVisible(input.type==='password');
+}
 function closeAppAccessModal(){
   const modal=document.getElementById('appAccessModal');
   if(!modal) return;
+  setAppPinVisible(false);
   modal.hidden=true;
   document.body.style.overflow='';
 }
@@ -594,7 +626,10 @@ function setAppStatusAjax(status){
     }
     const allowed=!!res.data.allowed;
     if(select) select.value=allowed?'allowed':'not_allowed';
-    if(res.data.pin) document.getElementById('appCredPin').value=res.data.pin;
+    if(res.data.pin){
+      document.getElementById('appCredPin').value=res.data.pin;
+      setAppPinVisible(true);
+    }
     if(res.data.code) document.getElementById('appCredId').value=res.data.code;
     _syncAppAllowedUI(allowed, res.data.pin||'');
     if(msg){msg.textContent=res.data.message||'Saved.';msg.className='app-access-status-msg is-ok';}
@@ -618,6 +653,7 @@ function resetPinAjax(){
     }
     if(res.data.pin){
       document.getElementById('appCredPin').value=res.data.pin;
+      setAppPinVisible(true);
       _syncAppAllowedUI(document.getElementById('appStatusSelect').value==='allowed', res.data.pin);
     }
   }).catch(function(){

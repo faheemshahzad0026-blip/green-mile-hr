@@ -74,19 +74,30 @@ def create_app(config_class=Config):
         agency = None
         notify_items = []
         announcement_count = 0
+        employee_photo_url = None
         if current_user.is_authenticated:
             if getattr(current_user, "is_employee_account", False):
                 # Employee always uses their agency branding (logo → favicon)
                 if getattr(current_user, "agency_id", None):
                     agency = db.session.get(Agency, current_user.agency_id)
                 try:
-                    from app.employee.services import employee_notifications, published_announcements
+                    from app.employee.services import (
+                        employee_notifications,
+                        hr_employee_record,
+                        published_announcements,
+                    )
+                    from flask import url_for as _url_for
 
                     notify_items = employee_notifications(current_user)
                     announcement_count = len(published_announcements(current_user))
+                    hr = hr_employee_record(current_user)
+                    photo = (hr.data or {}).get("profilePhoto") if hr else None
+                    if photo:
+                        employee_photo_url = _url_for("static", filename=photo)
                 except Exception:
                     notify_items = []
                     announcement_count = 0
+                    employee_photo_url = None
             else:
                 # Agency admin / staff: active workspace agency logo as favicon
                 agency = get_active_agency()
@@ -115,6 +126,7 @@ def create_app(config_class=Config):
             "notify_items": notify_items,
             "notify_count": sum(1 for n in notify_items if not n.get("read")),
             "announcement_count": announcement_count,
+            "employee_photo_url": employee_photo_url,
             "ui_period": get_period_state(),
         }
 

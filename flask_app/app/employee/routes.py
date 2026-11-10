@@ -31,6 +31,7 @@ from app.employee.services import (
     employee_notifications,
     employee_period_from_args,
     format_time_12h,
+    hr_employee_record,
     leave_day_count,
     leave_overlap_exists,
     leave_quotas,
@@ -45,7 +46,12 @@ from app.employee.services import (
 )
 from app.extensions import db
 from app.models import HrRecord
-from app.utils import save_attendance_selfie, save_employee_document_file, write_audit
+from app.utils import (
+    save_attendance_selfie,
+    save_employee_document_file,
+    save_employee_profile_photo,
+    write_audit,
+)
 
 
 def _punch_extras_from_request():
@@ -100,6 +106,15 @@ DOC_TYPES = [
     "Driving licence",
     "Contract",
 ]
+HELP_CATEGORIES = [
+    "Salary / payroll",
+    "Attendance",
+    "Leave",
+    "Documents",
+    "Accommodation / transport",
+    "Workplace concern",
+    "Other",
+]
 
 
 @bp.route("/")
@@ -114,6 +129,106 @@ def home():
         employee=current_user,
         dash=dash,
         quotas=dash["quotas"],
+    )
+
+
+@bp.route("/profile-photo", methods=["POST"])
+@login_required
+@employee_required
+def profile_photo():
+    """Employee self-serve profile picture upload / change."""
+    try:
+        path = save_employee_profile_photo(
+            request.files.get("photo"),
+            current_user.agency_id,
+            current_user.id,
+        )
+        hr = hr_employee_record(current_user)
+        if not hr:
+            hr = HrRecord(
+                agency_id=current_user.agency_id,
+                kind="employees",
+                data={
+                    "name": current_user.full_name or current_user.display_name,
+                    "code": current_user.employee_code,
+                    "authEmployeeId": str(current_user.id),
+                    "status": "Active",
+                    "department": current_user.department or "",
+                },
+            )
+            db.session.add(hr)
+            db.session.flush()
+        data = dict(hr.data or {})
+        data["profilePhoto"] = path
+        if not data.get("authEmployeeId"):
+            data["authEmployeeId"] = str(current_user.id)
+        if not data.get("code"):
+            data["code"] = current_user.employee_code
+        hr.data = data
+        write_audit(
+            "emp_profile_photo",
+            f"{current_user.employee_code}",
+            agency_id=current_user.agency_id,
+        )
+        db.session.commit()
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "danger")
+    except Exception:
+        db.session.rollback()
+        flash("Could not save that photo. Try another image.", "danger")
+    return redirect(url_for("employee.home", _anchor="profile-photo"))
+
+
+@bp.route("/help-desk", methods=["GET", "POST"])
+@login_required
+@employee_required
+def help_desk():
+    """Employee self-service HR help desk — submit and view own tickets."""
+    agency = employee_agency(current_user)
+    if request.method == "POST":
+        try:
+            category = (request.form.get("category") or "").strip()
+            if category not in HELP_CATEGORIES:
+                raise ValueError("Choose a valid category.")
+            subject = (request.form.get("subject") or "").strip()
+            message = (request.form.get("message") or "").strip()
+            if not subject or len(subject) > 200:
+                raise ValueError("Enter a subject (max 200 characters).")
+            if not message or len(message) > 4000:
+                raise ValueError("Enter a message (max 4000 characters).")
+            ticket = {
+                "employee": str(current_user.id),
+                "date": dubai_today(),
+                "category": category,
+                "subject": subject,
+                "message": message,
+                "status": "Pending",
+                "reply": "",
+                "source": "Employee",
+            }
+            db.session.add(
+                HrRecord(agency_id=current_user.agency_id, kind="helpDesk", data=ticket)
+            )
+            write_audit(
+                "help_request",
+                f"{current_user.employee_code} · {category}",
+                agency_id=current_user.agency_id,
+            )
+            db.session.commit()
+            return redirect(url_for("employee.help_desk"))
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc), "danger")
+
+    rows = records_for_employee(current_user, "helpDesk")
+    tickets = [{"id": r.id, **(r.data or {})} for r in rows]
+    return render_template(
+        "employee/help_desk.html",
+        agency=agency,
+        employee=current_user,
+        tickets=tickets,
+        categories=HELP_CATEGORIES,
     )
 
 

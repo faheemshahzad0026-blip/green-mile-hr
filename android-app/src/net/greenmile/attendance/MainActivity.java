@@ -23,23 +23,24 @@ public class MainActivity extends Activity {
   @Override public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> callback, FileChooserParams params){
    if(filePathCallback!=null){filePathCallback.onReceiveValue(null);filePathCallback=null;}
    filePathCallback=callback; cameraImageUri=null;
-   android.content.Intent camera=null;
+   // Attendance selfie: open the device camera directly (not the gallery chooser).
    try{
     android.content.ContentValues values=new android.content.ContentValues();
     values.put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/jpeg");
     values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"gm_attendance_"+System.currentTimeMillis()+".jpg");
     cameraImageUri=getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values);
    }catch(Exception e){cameraImageUri=null;}
-   if(cameraImageUri!=null){
-    camera=new android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-    camera.putExtra(android.provider.MediaStore.EXTRA_OUTPUT,cameraImageUri);
-    camera.addFlags(android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION|android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+   if(cameraImageUri==null){
+    if(filePathCallback!=null){filePathCallback.onReceiveValue(null);filePathCallback=null;}
+    return false;
    }
-   android.content.Intent gallery=new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT);
-   gallery.addCategory(android.content.Intent.CATEGORY_OPENABLE);gallery.setType("image/*");
-   android.content.Intent chooser=android.content.Intent.createChooser(gallery,"Take attendance selfie");
-   if(camera!=null) chooser.putExtra(android.content.Intent.EXTRA_INITIAL_INTENTS,new android.content.Intent[]{camera});
-   try{startActivityForResult(chooser,31);}catch(Exception e){if(filePathCallback!=null){filePathCallback.onReceiveValue(null);filePathCallback=null;}return false;}
+   android.content.Intent camera=new android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+   camera.putExtra(android.provider.MediaStore.EXTRA_OUTPUT,cameraImageUri);
+   camera.putExtra("android.intent.extras.CAMERA_FACING",1);
+   camera.putExtra("android.intent.extras.LENS_FACING_FRONT",1);
+   camera.putExtra("android.intent.extra.USE_FRONT_CAMERA",true);
+   camera.addFlags(android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION|android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+   try{startActivityForResult(camera,31);}catch(Exception e){if(filePathCallback!=null){filePathCallback.onReceiveValue(null);filePathCallback=null;}cameraImageUri=null;return false;}
    return true;
   }
  });

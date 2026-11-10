@@ -7,6 +7,32 @@
 {% set k = dash.kpis %}
 {% set q = dash.quotas %}
 
+<section class="card" id="profile-photo" style="margin-bottom:18px">
+  <div class="card-head">
+    <div>
+      <h2>Profile picture</h2>
+      <p>Shown in your employee app header. HR can also see it on your file.</p>
+    </div>
+  </div>
+  <div class="emp-photo-card">
+    <div class="emp-photo-preview">
+      {% if employee_photo_url %}
+      <img src="{{ employee_photo_url }}" alt="Your profile photo">
+      {% else %}
+      {{ employee.initials }}
+      {% endif %}
+    </div>
+    <div class="emp-photo-meta">
+      <p>{% if employee_photo_url %}Tap change to replace your current photo.{% else %}Upload a clear face photo so HR can recognise you on attendance reviews.{% endif %}</p>
+      <form method="post" action="{{ url_for('employee.profile_photo') }}" enctype="multipart/form-data" class="emp-photo-actions" data-full-nav="1">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="file" name="photo" id="empPhotoInput" accept="image/jpeg,image/png,image/webp" required>
+        <button type="submit" class="primary">{{ 'Change photo' if employee_photo_url else 'Upload photo' }}</button>
+      </form>
+    </div>
+  </div>
+</section>
+
 <div class="dash-kpis">
   <div class="dash-kpi">
     <span>Total leave</span>

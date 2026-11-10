@@ -25,6 +25,7 @@
       <a class="nav {% if _ep == 'employee.shifts' %}active{% endif %}" href="{{ url_for('employee.shifts') }}"><span>Shifts &amp; schedules</span></a>
       <a class="nav {% if _ep == 'employee.documents' %}active{% endif %}" href="{{ url_for('employee.documents') }}"><span>Documents</span></a>
       <a class="nav {% if _ep == 'employee.announcements' %}active{% endif %}" href="{{ url_for('employee.announcements') }}"><span>Announcements</span></a>
+      <a class="nav {% if _ep == 'employee.help_desk' %}active{% endif %}" href="{{ url_for('employee.help_desk') }}"><span>Help desk</span></a>
       <div class="nav-label">APP</div>
       <a class="nav {% if _ep == 'employee.download_apk_page' %}active{% endif %}" href="{{ url_for('employee.download_apk_page') }}"><span>Download Android app</span></a>
     </div>
@@ -78,11 +79,15 @@
 
         <div class="header-menu">
           <button type="button" class="header-user-trigger header-menu-btn" aria-haspopup="true" onclick="toggleHeaderMenu(this)" title="{{ current_user.display_name }}">
-            <span class="avatar header-user-btn">{{ current_user.initials }}</span>
+            <span class="avatar header-user-btn{% if employee_photo_url %} has-photo{% endif %}">
+              {% if employee_photo_url %}<img src="{{ employee_photo_url }}" alt="">{% else %}{{ current_user.initials }}{% endif %}
+            </span>
           </button>
           <div class="header-dropdown user-dropdown cool-dropdown">
             <div class="user-hero">
-              <div class="avatar user-hero-avatar">{{ current_user.initials }}</div>
+              <div class="avatar user-hero-avatar{% if employee_photo_url %} has-photo{% endif %}">
+                {% if employee_photo_url %}<img src="{{ employee_photo_url }}" alt="">{% else %}{{ current_user.initials }}{% endif %}
+              </div>
               <div class="user-hero-text">
                 <strong>{{ current_user.display_name }}</strong>
                 <span>{{ current_user.employee_code }}</span>
@@ -93,6 +98,14 @@
               <a class="user-link" href="{{ url_for('employee.home') }}">
                 <span class="user-link-ico">⌂</span>
                 <span><strong>Dashboard</strong><small>Your employee home</small></span>
+              </a>
+              <a class="user-link" href="{{ url_for('employee.home') }}#profile-photo">
+                <span class="user-link-ico">📷</span>
+                <span><strong>Profile photo</strong><small>Upload or change your picture</small></span>
+              </a>
+              <a class="user-link" href="{{ url_for('employee.help_desk') }}">
+                <span class="user-link-ico">?</span>
+                <span><strong>Help desk</strong><small>Ask HR for support</small></span>
               </a>
               <a class="user-link danger" href="{{ url_for('auth.logout') }}">
                 <span class="user-link-ico">→</span>

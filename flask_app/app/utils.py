@@ -232,6 +232,33 @@ def save_employee_document_file(file_storage, agency_id: int, employee_key: str)
     return f"uploads/{agency_id}/docs/{employee_key}/{dest_name}"
 
 
+def save_employee_profile_photo(file_storage, agency_id: int, employee_id) -> str:
+    """Store employee profile photo under uploads/{agency}/profiles/{employee}/…"""
+    if not file_storage or not getattr(file_storage, "filename", None):
+        raise ValueError("Choose a photo to upload.")
+    filename = secure_filename(file_storage.filename) or "photo.jpg"
+    ext = Path(filename).suffix.lower() or ".jpg"
+    if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise ValueError("Photo must be JPG, PNG or WEBP.")
+    upload_root = Path(current_app.config["UPLOAD_FOLDER"])
+    dest_dir = upload_root / str(agency_id) / "profiles" / str(employee_id)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_name = f"profile-{secrets.token_hex(4)}{ext}"
+    dest = dest_dir / dest_name
+    image = Image.open(file_storage)
+    if image.mode not in {"RGB", "L"}:
+        image = image.convert("RGB")
+        ext = ".jpg"
+        dest_name = f"profile-{secrets.token_hex(4)}{ext}"
+        dest = dest_dir / dest_name
+    image.thumbnail((640, 640))
+    image.save(dest, quality=88, optimize=True)
+    if dest.stat().st_size > 900_000:
+        dest.unlink(missing_ok=True)
+        raise ValueError("Photo is too large. Choose a smaller image.")
+    return f"uploads/{agency_id}/profiles/{employee_id}/{dest_name}"
+
+
 def save_attendance_selfie(file_storage, agency_id: int, employee_id, action: str) -> str:
     """Store punch selfie under uploads/{agency}/selfies/{employee}/…"""
     from datetime import datetime, timedelta, timezone

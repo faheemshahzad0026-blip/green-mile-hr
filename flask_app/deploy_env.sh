@@ -1,46 +1,26 @@
 #!/usr/bin/env bash
-# On the server (example):
-#   source /home/greenmil/virtualenv/hr.greenmilerecycling.com/3.12/bin/activate
-#   cd /home/greenmil/hr.greenmilerecycling.com   # app root (contents of flask_app)
-#   export DATABASE_URL='mysql+pymysql://USER:PASS%40WORD@HOST:3306/DB'
-#   export SECRET_KEY='long-random-string'
-#   # optional overrides:
-#   export SUPER_ADMIN_USERNAME='U.Technologies'
-#   export SUPER_ADMIN_PASSWORD='Admin@12345'
-#   export AGENCY_ADMIN_USERNAME='Green-Mile-HR'
-#   export AGENCY_ADMIN_PASSWORD='Green_Mile_HR@0112'
+# On the server:
+#   source ~/virtualenv/hr.greenmilerecycling.com/3.12/bin/activate
+#   cd ~/hr.greenmilerecycling.com
+#   export DATABASE_URL='mysql+pymysql://greenmil_hr_app_database:greenmil_hr_app_database%400336@127.0.0.1:3306/greenmil_hr_app_database'
 #   bash deploy_env.sh
+#
+# Admin users are NOT written to .env — flask init-db / ensure_seed_users inserts them into MySQL.
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$ROOT/.env"
 
 : "${DATABASE_URL:?Set DATABASE_URL first}"
-: "${SECRET_KEY:=change-this-to-a-long-random-string}"
-: "${SUPER_ADMIN_USERNAME:=U.Technologies}"
-: "${SUPER_ADMIN_PASSWORD:=Admin@12345}"
-: "${SUPER_ADMIN_FULL_NAME:=U.Technologies}"
-: "${AGENCY_NAME:=Green Mile}"
-: "${AGENCY_COMPANY_NAME:=Green Mile Recycling LLC}"
-: "${AGENCY_ADMIN_USERNAME:=Green-Mile-HR}"
-: "${AGENCY_ADMIN_PASSWORD:=Green_Mile_HR@0112}"
-: "${AGENCY_ADMIN_FULL_NAME:=Green Mile HR}"
+: "${SECRET_KEY:=green-mile-hr-prod-secret-change-if-needed}"
 
 cat > "$ENV_FILE" <<EOF
 FLASK_ENV=production
 SECRET_KEY=${SECRET_KEY}
 DATABASE_URL=${DATABASE_URL}
-SUPER_ADMIN_USERNAME=${SUPER_ADMIN_USERNAME}
-SUPER_ADMIN_PASSWORD=${SUPER_ADMIN_PASSWORD}
-SUPER_ADMIN_FULL_NAME=${SUPER_ADMIN_FULL_NAME}
-AGENCY_NAME=${AGENCY_NAME}
-AGENCY_COMPANY_NAME=${AGENCY_COMPANY_NAME}
-AGENCY_ADMIN_USERNAME=${AGENCY_ADMIN_USERNAME}
-AGENCY_ADMIN_PASSWORD=${AGENCY_ADMIN_PASSWORD}
-AGENCY_ADMIN_FULL_NAME=${AGENCY_ADMIN_FULL_NAME}
 EOF
 chmod 600 "$ENV_FILE"
-echo "Wrote $ENV_FILE"
+echo "Wrote $ENV_FILE (DB + secret only)"
 
 cd "$ROOT"
 export FLASK_APP=run.py
@@ -56,9 +36,9 @@ with app.app_context():
     sa = seeded["super_admin"]
     aa = seeded["agency_admin"]
     ag = seeded["agency"]
-    print("DB ready.")
-    print("  Super admin:", sa.username, "/", sa.full_name)
+    print("DB ready — users seeded in database:")
+    print("  Super admin:", sa.username)
     print("  Agency:     ", ag.company_name, "(slug=%s)" % ag.slug)
-    print("  Agency admin:", aa.username, "/", aa.full_name)
+    print("  Agency admin:", aa.username)
     print("  Logo path:  ", ag.logo_path)
 PY

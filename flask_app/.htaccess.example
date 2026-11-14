@@ -1,0 +1,12 @@
+# cPanel regenerates the real .htaccess when you edit/restart Setup Python App.
+# Do NOT overwrite that file with rsync. Keep this as a reference only.
+#
+# Typical CloudLinux Passenger block (adjust USER / paths):
+#
+# # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+# PassengerAppRoot "/home/USER/hr.greenmilerecycling.com"
+# PassengerBaseURI "/"
+# PassengerPython "/home/USER/virtualenv/hr.greenmilerecycling.com/3.12/bin/python"
+# # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+#
+# Options -Indexes

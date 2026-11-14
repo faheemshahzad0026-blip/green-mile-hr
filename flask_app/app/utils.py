@@ -98,15 +98,22 @@ def _sync_user_password(user: User, password: str) -> bool:
     return False
 
 
-def ensure_super_admin():
-    """Create or sync platform super admin: U.Technologies."""
-    from flask import current_app
+# Seeded into DB on init (not via .env)
+SEED_SUPER_ADMIN_USERNAME = "U.Technologies"
+SEED_SUPER_ADMIN_PASSWORD = "Admin@12345"
+SEED_SUPER_ADMIN_FULL_NAME = "U.Technologies"
+SEED_AGENCY_NAME = "Green Mile"
+SEED_AGENCY_COMPANY = "Green Mile Recycling LLC"
+SEED_AGENCY_ADMIN_USERNAME = "Green-Mile-HR"
+SEED_AGENCY_ADMIN_PASSWORD = "Green_Mile_HR@0112"
+SEED_AGENCY_ADMIN_FULL_NAME = "Green Mile HR"
 
-    username = (current_app.config.get("SUPER_ADMIN_USERNAME") or "U.Technologies").strip()
-    password = current_app.config.get("SUPER_ADMIN_PASSWORD") or "Admin@12345"
-    full_name = (
-        current_app.config.get("SUPER_ADMIN_FULL_NAME") or "U.Technologies"
-    ).strip() or "U.Technologies"
+
+def ensure_super_admin():
+    """Create or sync platform super admin: U.Technologies (DB seed)."""
+    username = SEED_SUPER_ADMIN_USERNAME
+    password = SEED_SUPER_ADMIN_PASSWORD
+    full_name = SEED_SUPER_ADMIN_FULL_NAME
     email = "admin@udottechnologies.com"
 
     user = User.query.filter_by(username=username).first()
@@ -183,22 +190,12 @@ def _seed_agency_logo(agency: Agency) -> bool:
 
 
 def ensure_green_mile_agency():
-    """Create/sync Green Mile Recycling LLC + agency admin + logo from repo."""
-    from flask import current_app
-
-    name = (current_app.config.get("AGENCY_NAME") or "Green Mile").strip()
-    company = (
-        current_app.config.get("AGENCY_COMPANY_NAME") or "Green Mile Recycling LLC"
-    ).strip()
-    admin_username = (
-        current_app.config.get("AGENCY_ADMIN_USERNAME") or "Green-Mile-HR"
-    ).strip()
-    admin_password = (
-        current_app.config.get("AGENCY_ADMIN_PASSWORD") or "Green_Mile_HR@0112"
-    )
-    admin_full_name = (
-        current_app.config.get("AGENCY_ADMIN_FULL_NAME") or "Green Mile HR"
-    ).strip()
+    """Create/sync Green Mile Recycling LLC + agency admin + logo (DB seed)."""
+    name = SEED_AGENCY_NAME
+    company = SEED_AGENCY_COMPANY
+    admin_username = SEED_AGENCY_ADMIN_USERNAME
+    admin_password = SEED_AGENCY_ADMIN_PASSWORD
+    admin_full_name = SEED_AGENCY_ADMIN_FULL_NAME
 
     from sqlalchemy import or_
 

@@ -27,18 +27,7 @@ class Config:
         str(BASE_DIR / "app" / "static" / "uploads"),
     )
     APK_FOLDER = str(BASE_DIR / "app" / "static" / "apk")
-    # Platform owner (no agency)
-    SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "U.Technologies")
-    SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "Admin@12345")
-    SUPER_ADMIN_FULL_NAME = os.getenv("SUPER_ADMIN_FULL_NAME", "U.Technologies")
-    # Default Green Mile Recycling LLC agency + HR admin
-    AGENCY_NAME = os.getenv("AGENCY_NAME", "Green Mile")
-    AGENCY_COMPANY_NAME = os.getenv(
-        "AGENCY_COMPANY_NAME", "Green Mile Recycling LLC"
-    )
-    AGENCY_ADMIN_USERNAME = os.getenv("AGENCY_ADMIN_USERNAME", "Green-Mile-HR")
-    AGENCY_ADMIN_PASSWORD = os.getenv("AGENCY_ADMIN_PASSWORD", "Green_Mile_HR@0112")
-    AGENCY_ADMIN_FULL_NAME = os.getenv("AGENCY_ADMIN_FULL_NAME", "Green Mile HR")
+    # Super admin + Green Mile agency admin are seeded in DB via app.utils.ensure_seed_users
     # Default session: 6 hours · Remember me: 30 days (see auth login)
     PERMANENT_SESSION_LIFETIME = timedelta(hours=6)
     REMEMBER_COOKIE_DURATION = timedelta(days=30)

@@ -91,12 +91,19 @@ def next_employee_code(agency_id: int) -> str:
     return f"{count:05d}"
 
 
+def _sync_user_password(user: User, password: str) -> bool:
+    if password and not user.check_password(password):
+        user.set_password(password)
+        return True
+    return False
+
+
 def ensure_super_admin():
-    """Create or sync the platform super admin from env config."""
+    """Create or sync platform super admin: U.Technologies."""
     from flask import current_app
 
-    username = (current_app.config.get("SUPER_ADMIN_USERNAME") or "Green-Mile-HR").strip()
-    password = current_app.config.get("SUPER_ADMIN_PASSWORD") or "Green_Mile_HR@0112"
+    username = (current_app.config.get("SUPER_ADMIN_USERNAME") or "U.Technologies").strip()
+    password = current_app.config.get("SUPER_ADMIN_PASSWORD") or "Admin@12345"
     full_name = (
         current_app.config.get("SUPER_ADMIN_FULL_NAME") or "U.Technologies"
     ).strip() or "U.Technologies"
@@ -109,7 +116,6 @@ def ensure_super_admin():
     if user:
         changed = False
         if user.username != username:
-            # Avoid unique clash if another row already holds the target username
             clash = User.query.filter(User.username == username, User.id != user.id).first()
             if not clash:
                 user.username = username
@@ -123,13 +129,14 @@ def ensure_super_admin():
         if not getattr(user, "email", None):
             user.email = email
             changed = True
-        if password and not user.check_password(password):
-            user.set_password(password)
+        if _sync_user_password(user, password):
             changed = True
         if not user.is_active:
             user.is_active = True
             changed = True
-        user.agency_id = None
+        if user.agency_id is not None:
+            user.agency_id = None
+            changed = True
         if changed:
             write_audit("sync_super_admin", f"Synced {user.username}", actor=user)
             db.session.commit()
@@ -148,6 +155,137 @@ def ensure_super_admin():
     write_audit("seed_super_admin", f"Created {user.username}", actor=user)
     db.session.commit()
     return user
+
+
+def _seed_agency_logo(agency: Agency) -> bool:
+    """Copy bundled Green Mile logo into agency uploads (repo static asset)."""
+    from flask import current_app
+    import shutil
+
+    static_logo = Path(current_app.root_path) / "static" / "green-mile-logo.png"
+    if not static_logo.is_file():
+        return False
+    upload_root = Path(current_app.config["UPLOAD_FOLDER"])
+    agency_dir = upload_root / str(agency.id)
+    agency_dir.mkdir(parents=True, exist_ok=True)
+    dest = agency_dir / "logo.png"
+    try:
+        image = Image.open(static_logo)
+        image.thumbnail((400, 400))
+        image.save(dest)
+    except Exception:
+        shutil.copy2(static_logo, dest)
+    rel = f"uploads/{agency.id}/logo.png"
+    if agency.logo_path != rel:
+        agency.logo_path = rel
+        return True
+    return False
+
+
+def ensure_green_mile_agency():
+    """Create/sync Green Mile Recycling LLC + agency admin + logo from repo."""
+    from flask import current_app
+
+    name = (current_app.config.get("AGENCY_NAME") or "Green Mile").strip()
+    company = (
+        current_app.config.get("AGENCY_COMPANY_NAME") or "Green Mile Recycling LLC"
+    ).strip()
+    admin_username = (
+        current_app.config.get("AGENCY_ADMIN_USERNAME") or "Green-Mile-HR"
+    ).strip()
+    admin_password = (
+        current_app.config.get("AGENCY_ADMIN_PASSWORD") or "Green_Mile_HR@0112"
+    )
+    admin_full_name = (
+        current_app.config.get("AGENCY_ADMIN_FULL_NAME") or "Green Mile HR"
+    ).strip()
+
+    from sqlalchemy import or_
+
+    agency = Agency.query.filter(
+        or_(
+            Agency.slug == "green-mile",
+            Agency.name == name,
+            Agency.company_name == company,
+        )
+    ).first()
+    if not agency:
+        agency = Agency(
+            name=name,
+            slug=unique_agency_slug("green-mile"),
+            company_name=company,
+            company_email="hr@greenmilerecycling.com",
+            company_phone="",
+            company_address="UAE",
+            is_active=True,
+        )
+        db.session.add(agency)
+        db.session.flush()
+    else:
+        agency.name = name
+        agency.company_name = company
+        agency.is_active = True
+
+    _seed_agency_logo(agency)
+
+    admin = User.query.filter_by(username=admin_username).first()
+    if not admin:
+        admin = (
+            User.query.filter_by(agency_id=agency.id, role=User.ROLE_AGENCY_ADMIN)
+            .order_by(User.id.asc())
+            .first()
+        )
+
+    if admin:
+        if admin.username != admin_username:
+            clash = User.query.filter(
+                User.username == admin_username, User.id != admin.id
+            ).first()
+            if not clash:
+                admin.username = admin_username
+        admin.role = User.ROLE_AGENCY_ADMIN
+        admin.agency_id = agency.id
+        admin.full_name = admin_full_name
+        admin.is_active = True
+        _sync_user_password(admin, admin_password)
+        write_audit(
+            "sync_agency_admin",
+            f"Synced {admin.username} for {agency.company_name}",
+            agency_id=agency.id,
+            actor=admin,
+        )
+        db.session.commit()
+        return agency, admin
+
+    admin = User(
+        username=admin_username,
+        full_name=admin_full_name,
+        email="hr@greenmilerecycling.com",
+        role=User.ROLE_AGENCY_ADMIN,
+        agency_id=agency.id,
+        is_active=True,
+    )
+    admin.set_password(admin_password)
+    db.session.add(admin)
+    write_audit(
+        "seed_agency_admin",
+        f"Created {admin.username} for {agency.company_name}",
+        agency_id=agency.id,
+        actor=admin,
+    )
+    db.session.commit()
+    return agency, admin
+
+
+def ensure_seed_users():
+    """Seed super admin + Green Mile company/admin/logo."""
+    super_admin = ensure_super_admin()
+    agency, agency_admin = ensure_green_mile_agency()
+    return {
+        "super_admin": super_admin,
+        "agency": agency,
+        "agency_admin": agency_admin,
+    }
 
 
 def _notification_employee_label(agency_id: int, emp_ref: str) -> str:

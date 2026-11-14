@@ -140,13 +140,21 @@ def create_app(config_class=Config):
 
     @app.cli.command("init-db")
     def init_db_command():
-        """Create tables and seed super admin."""
+        """Create tables and seed U.Technologies + Green Mile HR."""
         db.create_all()
         _ensure_schema()
-        from app.utils import ensure_super_admin
+        from app.utils import ensure_seed_users
 
-        ensure_super_admin()
-        print("Database ready. Super admin seeded if missing.")
+        seeded = ensure_seed_users()
+        print(
+            "Database ready.",
+            "Super admin:",
+            seeded["super_admin"].username,
+            "| Agency admin:",
+            seeded["agency_admin"].username,
+            "| Company:",
+            seeded["agency"].company_name,
+        )
 
     def _ensure_schema():
         try:
@@ -166,8 +174,8 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
         _ensure_schema()
-        from app.utils import ensure_super_admin
+        from app.utils import ensure_seed_users
 
-        ensure_super_admin()
+        ensure_seed_users()
 
     return app

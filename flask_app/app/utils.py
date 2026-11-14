@@ -92,23 +92,58 @@ def next_employee_code(agency_id: int) -> str:
 
 
 def ensure_super_admin():
+    """Create or sync the platform super admin from env config."""
     from flask import current_app
 
-    existing = User.query.filter_by(role=User.ROLE_SUPER_ADMIN).first()
-    if existing:
-        if not getattr(existing, "email", None):
-            existing.email = "superadmin@greenmile.local"
+    username = (current_app.config.get("SUPER_ADMIN_USERNAME") or "Green-Mile-HR").strip()
+    password = current_app.config.get("SUPER_ADMIN_PASSWORD") or "Green_Mile_HR@0112"
+    full_name = (
+        current_app.config.get("SUPER_ADMIN_FULL_NAME") or "U.Technologies"
+    ).strip() or "U.Technologies"
+    email = "admin@udottechnologies.com"
+
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        user = User.query.filter_by(role=User.ROLE_SUPER_ADMIN).first()
+
+    if user:
+        changed = False
+        if user.username != username:
+            # Avoid unique clash if another row already holds the target username
+            clash = User.query.filter(User.username == username, User.id != user.id).first()
+            if not clash:
+                user.username = username
+                changed = True
+        if user.role != User.ROLE_SUPER_ADMIN:
+            user.role = User.ROLE_SUPER_ADMIN
+            changed = True
+        if (user.full_name or "") != full_name:
+            user.full_name = full_name
+            changed = True
+        if not getattr(user, "email", None):
+            user.email = email
+            changed = True
+        if password and not user.check_password(password):
+            user.set_password(password)
+            changed = True
+        if not user.is_active:
+            user.is_active = True
+            changed = True
+        user.agency_id = None
+        if changed:
+            write_audit("sync_super_admin", f"Synced {user.username}", actor=user)
             db.session.commit()
-        return existing
+        return user
+
     user = User(
-        username=current_app.config["SUPER_ADMIN_USERNAME"],
-        full_name="Super Admin",
-        email="superadmin@greenmile.local",
+        username=username,
+        full_name=full_name,
+        email=email,
         role=User.ROLE_SUPER_ADMIN,
         agency_id=None,
         is_active=True,
     )
-    user.set_password(current_app.config["SUPER_ADMIN_PASSWORD"])
+    user.set_password(password)
     db.session.add(user)
     write_audit("seed_super_admin", f"Created {user.username}", actor=user)
     db.session.commit()

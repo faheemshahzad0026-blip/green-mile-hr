@@ -27,8 +27,9 @@ class Config:
         str(BASE_DIR / "app" / "static" / "uploads"),
     )
     APK_FOLDER = str(BASE_DIR / "app" / "static" / "apk")
-    SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "superadmin")
-    SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "Admin@12345")
+    SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "Green-Mile-HR")
+    SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "Green_Mile_HR@0112")
+    SUPER_ADMIN_FULL_NAME = os.getenv("SUPER_ADMIN_FULL_NAME", "U.Technologies")
     # Default session: 6 hours · Remember me: 30 days (see auth login)
     PERMANENT_SESSION_LIFETIME = timedelta(hours=6)
     REMEMBER_COOKIE_DURATION = timedelta(days=30)

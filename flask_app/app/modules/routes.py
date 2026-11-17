@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 
-from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from flask import current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 
 from app.decorators import admin_required
@@ -957,7 +957,12 @@ def _employee_app_access_action(agency, action):
                 status=400,
             )
         company = (agency.company_name or agency.name or "HR").strip()
-        from_addr = (agency.company_email or "").strip() or None
+        # Always send From U.Technologies mailbox → employee email on file
+        from_addr = (
+            current_app.config.get("MAIL_DEFAULT_SENDER")
+            or current_app.config.get("MAIL_USERNAME")
+            or "info@udottechnologies.com"
+        )
         login_url = url_for("auth.employee_login", _external=True)
         apk_url = url_for("employee.download_apk_page", _external=True)
         body = (

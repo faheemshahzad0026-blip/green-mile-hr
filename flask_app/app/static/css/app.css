@@ -859,10 +859,15 @@ tr.row-focus{outline:2px solid #2f6fb5;outline-offset:-2px;background:#e8f1fb}
   }
   .header-search{min-height:40px;border-radius:12px}
   .header-search-icon{flex-shrink:0}
-  .period-trigger{max-width:44px;padding:0;justify-content:center;gap:0}
-  .period-trigger .period-text,
-  .period-trigger .period-caret{display:none}
-  .period-trigger .period-ico{opacity:1;font-size:16px}
+  .period-trigger{
+    max-width:min(148px,42vw);min-height:34px;padding:0 10px;gap:5px;
+    justify-content:flex-start;border-radius:10px;
+  }
+  .period-trigger .period-text{
+    display:inline-block;max-width:88px;font-size:11px;font-weight:400;
+  }
+  .period-trigger .period-caret{display:inline;font-size:10px;opacity:.7}
+  .period-trigger .period-ico{opacity:.85;font-size:13px}
   .content{padding:18px 12px 28px}
   .page-heading{gap:12px}
   .page-heading h1{font-size:22px;line-height:1.2;word-break:break-word}
@@ -944,7 +949,8 @@ strong,b,th,h1,h2,h3,h4,.nav,.badge,.eyebrow,.brand,.company-brand strong{font-w
 @media(max-width:900px){
   .header-search{min-height:34px}
   .header-search input{font-size:16px;padding:6px 0}
-  .period-trigger{min-height:34px;max-width:120px}
+  .period-trigger{min-height:34px;max-width:150px;padding:0 10px}
+  .period-text{max-width:96px;font-size:12px}
   .notify-btn{width:34px;height:34px;min-width:34px}
   .header-user-btn.avatar,.header-user-trigger .header-user-btn{width:32px;height:32px;min-width:32px}
 }

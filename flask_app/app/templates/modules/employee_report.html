@@ -1,0 +1,142 @@
+{% extends "layout_admin.html" %}
+{% block title %}{{ data.name or 'Employee' }} · Report · Green Mile HR{% endblock %}
+{% block heading %}Employee report{% endblock %}
+{% block description %}{{ data.name or 'Employee' }} · {{ data.code or '—' }}{% endblock %}
+{% block heading_actions %}
+<a class="secondary emp-report-back" href="{{ url_for('modules.module_list', kind='employees') }}">← Back to employees</a>
+<button type="button" class="primary emp-report-print" onclick="window.print()">Generate / Print</button>
+{% endblock %}
+{% block content %}
+<div class="emp-report" id="employeeReport">
+  <section class="emp-report-hero">
+    <div class="emp-report-hero-main">
+      {% if agency.logo_path %}
+      <img class="emp-report-logo" src="{{ url_for('static', filename=agency.logo_path) }}" alt="">
+      {% else %}
+      <img class="emp-report-logo" src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="">
+      {% endif %}
+      <div>
+        <p class="emp-report-eyebrow">{{ agency.company_name or agency.name }}</p>
+        <h2 class="emp-report-name">{{ data.name or 'Employee' }}</h2>
+        <p class="emp-report-meta">Employee ID {{ data.code or '—' }} · {{ data.designation or '—' }} · {{ data.department or '—' }}</p>
+      </div>
+    </div>
+    <div class="emp-report-stamp">
+      <span>Generated</span>
+      <strong>{{ generated_at }}</strong>
+    </div>
+  </section>
+
+  <section class="emp-report-kpis">
+    <article class="emp-report-kpi">
+      <span>Total leave pool</span>
+      <strong>{% if leave_balance %}{{ leave_balance.total_quota }}{% else %}—{% endif %}</strong>
+      <small>Annual + sick entitlement</small>
+    </article>
+    <article class="emp-report-kpi">
+      <span>Leave used</span>
+      <strong>{% if leave_balance %}{{ leave_balance.total_used }}{% else %}—{% endif %}</strong>
+      <small>Approved days taken</small>
+    </article>
+    <article class="emp-report-kpi accent">
+      <span>Available leave</span>
+      <strong>{% if leave_balance %}{{ leave_balance.total_remaining }}{% else %}—{% endif %}</strong>
+      <small>Remaining this cycle</small>
+    </article>
+    <article class="emp-report-kpi">
+      <span>Pending requests</span>
+      <strong>{% if leave_balance %}{{ leave_balance.pending_count }}{% else %}{{ leaves|selectattr('status','equalto','Pending')|list|length }}{% endif %}</strong>
+      <small>Awaiting HR decision</small>
+    </article>
+  </section>
+
+  <div class="emp-report-grid">
+    <section class="emp-report-card">
+      <header>
+        <h3>Employee details</h3>
+      </header>
+      <div class="emp-report-dl">
+        <div><span>Full name</span><strong>{{ data.name or '—' }}</strong></div>
+        <div><span>Employee ID</span><strong>{{ data.code or '—' }}</strong></div>
+        <div><span>Designation</span><strong>{{ data.designation or '—' }}</strong></div>
+        <div><span>Department</span><strong>{{ data.department or '—' }}</strong></div>
+        <div><span>Mobile</span><strong>{{ data.phone or '—' }}</strong></div>
+        <div><span>Email</span><strong>{{ data.email or '—' }}</strong></div>
+        <div><span>Location</span><strong>{{ data.location or '—' }}</strong></div>
+        <div><span>Status</span><strong>{{ data.status or '—' }}</strong></div>
+        <div><span>Nationality</span><strong>{{ data.nationality or '—' }}</strong></div>
+        <div><span>Manager</span><strong>{{ data.manager or '—' }}</strong></div>
+      </div>
+    </section>
+
+    <section class="emp-report-card">
+      <header>
+        <h3>Employment dates</h3>
+      </header>
+      <div class="emp-report-dates">
+        <div class="emp-report-date">
+          <span>Join date</span>
+          <strong>{{ join_date }}</strong>
+        </div>
+        <div class="emp-report-date">
+          <span>Contract start</span>
+          <strong>{{ contract_start }}</strong>
+        </div>
+        <div class="emp-report-date highlight">
+          <span>Contract ending date</span>
+          <strong>{{ contract_end }}</strong>
+        </div>
+        <div class="emp-report-date">
+          <span>Contract type</span>
+          <strong>{{ data.contract or '—' }}</strong>
+        </div>
+      </div>
+      {% if leave_balance and leave_balance.cycle_start %}
+      <p class="emp-report-cycle">Leave cycle {{ leave_balance.cycle_start }} → {{ leave_balance.cycle_end }} · Annual {{ leave_balance.annual_remaining }}/{{ leave_balance.annual_quota }} · Sick {{ leave_balance.sick_remaining }}/{{ leave_balance.sick_quota }}</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="emp-report-card emp-report-leaves">
+    <header>
+      <h3>Leave list</h3>
+      <span>{{ leaves|length }} record{% if leaves|length != 1 %}s{% endif %}</span>
+    </header>
+    {% if leaves %}
+    <div class="table-scroll">
+      <table class="emp-report-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Days</th>
+            <th>Status</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in leaves %}
+          <tr>
+            <td><strong>{{ row.type }}</strong></td>
+            <td>{{ row.from }}</td>
+            <td>{{ row.to }}</td>
+            <td>{{ row.days }}</td>
+            <td><span class="emp-report-status status-{{ row.status|lower }}">{{ row.status }}</span></td>
+            <td>{{ row.reason or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="emp-report-empty">No leave requests on file for this employee.</p>
+    {% endif %}
+  </section>
+
+  <div class="emp-report-actions no-print">
+    <a class="secondary" href="{{ url_for('modules.module_list', kind='employees') }}">← Back to employees</a>
+    <button type="button" class="primary" onclick="window.print()">Generate / Print report</button>
+  </div>
+</div>
+{% endblock %}

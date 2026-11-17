@@ -1161,3 +1161,88 @@ strong,b,th,h1,h2,h3,h4,.nav,.badge,.eyebrow,.brand,.company-brand strong{font-w
   .form-grid{grid-template-columns:1fr!important;gap:10px!important}
 }
 
+/* Employee report */
+.emp-report{display:flex;flex-direction:column;gap:16px;max-width:1100px}
+.emp-report-hero{
+  display:flex;justify-content:space-between;gap:16px;align-items:flex-end;flex-wrap:wrap;
+  padding:20px 22px;border-radius:16px;border:1px solid #c5d6b4;
+  background:linear-gradient(145deg,#163c22 0%,#2a5a3a 55%,#3f6f4a 100%);color:#f4f9ef;
+}
+.emp-report-hero-main{display:flex;gap:14px;align-items:center;min-width:0}
+.emp-report-logo{
+  width:56px;height:56px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;flex-shrink:0;
+}
+.emp-report-eyebrow{margin:0 0 4px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#c9e0b8}
+.emp-report-name{margin:0;font-size:24px;line-height:1.2;font-weight:600;letter-spacing:-.02em}
+.emp-report-meta{margin:6px 0 0;font-size:13px;color:#d5e8c8;opacity:.92}
+.emp-report-stamp{text-align:right}
+.emp-report-stamp span{display:block;font-size:11px;color:#c9e0b8;margin-bottom:4px}
+.emp-report-stamp strong{font-size:13px;font-weight:500}
+.emp-report-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.emp-report-kpi{
+  padding:14px 16px;border-radius:14px;border:1px solid #d5e4c6;background:#f7faf2;
+  display:flex;flex-direction:column;gap:4px;
+}
+.emp-report-kpi span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5d7a5a}
+.emp-report-kpi strong{font-size:28px;line-height:1.1;font-weight:600;color:#163c22}
+.emp-report-kpi small{font-size:12px;color:#6a8268}
+.emp-report-kpi.accent{background:#163c22;border-color:#163c22;color:#f4f9ef}
+.emp-report-kpi.accent span,.emp-report-kpi.accent small{color:#c9e0b8}
+.emp-report-kpi.accent strong{color:#fff}
+.emp-report-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
+.emp-report-card{
+  background:#fff;border:1px solid #d5e4c6;border-radius:14px;padding:16px 18px;
+}
+.emp-report-card>header{
+  display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  margin:0 0 14px;padding:0 0 10px;border-bottom:1px solid #e4eed9;
+}
+.emp-report-card>header h3{margin:0;font-size:15px;font-weight:600;color:#163c22}
+.emp-report-card>header span{font-size:12px;color:#6a8268}
+.emp-report-dl{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;
+}
+.emp-report-dl span{display:block;font-size:11px;color:#6a8268;margin-bottom:3px}
+.emp-report-dl strong{font-size:13px;font-weight:500;color:#163c22;overflow-wrap:anywhere}
+.emp-report-dates{display:grid;gap:10px}
+.emp-report-date{
+  padding:12px 14px;border-radius:10px;background:#f4f9ef;border:1px solid #e0ebd4;
+}
+.emp-report-date span{display:block;font-size:11px;color:#5d7a5a;margin-bottom:4px}
+.emp-report-date strong{font-size:15px;font-weight:600;color:#163c22}
+.emp-report-date.highlight{background:#163c22;border-color:#163c22}
+.emp-report-date.highlight span{color:#c9e0b8}
+.emp-report-date.highlight strong{color:#fff}
+.emp-report-cycle{margin:12px 0 0;font-size:12px;line-height:1.45;color:#4a6a4f}
+.emp-report-table{width:100%;border-collapse:collapse}
+.emp-report-table th{
+  text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:#5d7a5a;padding:8px 10px;border-bottom:1px solid #d5e4c6;font-weight:500;
+}
+.emp-report-table td{padding:10px;border-bottom:1px solid #eef4ea;font-size:13px;color:#163c22;vertical-align:top}
+.emp-report-status{
+  display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:500;
+  background:#eef4ea;color:#335c2b;
+}
+.emp-report-status.status-approved{background:#dff3d4;color:#1d5c2a}
+.emp-report-status.status-pending{background:#fff3d6;color:#7a5a12}
+.emp-report-status.status-rejected{background:#fde4e4;color:#8a2a2a}
+.emp-report-empty{margin:0;padding:18px 4px;color:#6a8268;font-size:13px}
+.emp-report-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;padding-top:4px}
+.emp-report-back,.emp-report-print{min-height:34px!important;padding:7px 14px!important;font-size:12px!important}
+@media(max-width:900px){
+  .emp-report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .emp-report-grid{grid-template-columns:1fr}
+  .emp-report-dl{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .emp-report-kpis{grid-template-columns:1fr}
+  .emp-report-name{font-size:20px}
+}
+@media print{
+  .sidebar,.scrim,.topbar,.page-head,.heading-actions,.no-print,.emp-report-actions,.flash,.toast{display:none!important}
+  .app,.main,.content,.page{padding:0!important;margin:0!important;background:#fff!important;box-shadow:none!important}
+  .emp-report{max-width:none}
+  .emp-report-hero,.emp-report-kpi.accent,.emp-report-date.highlight{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+

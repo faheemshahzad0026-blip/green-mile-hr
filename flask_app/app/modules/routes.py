@@ -447,6 +447,94 @@ def employee_profile(record_id):
     )
 
 
+@bp.route("/employees/<int:record_id>/report")
+@login_required
+@admin_required
+def employee_report(record_id):
+    """HR employee summary: details, leave balances, leave list, join/contract dates."""
+    from app.employee.services import annual_leave_balance, leave_day_count
+
+    agency = _agency_or_redirect()
+    if not agency:
+        return redirect(url_for("agency.dashboard"))
+
+    record = HrRecord.query.filter_by(
+        id=record_id, agency_id=agency.id, kind="employees"
+    ).first_or_404()
+    data = dict(record.data or {})
+    auth_emp = None
+    if data.get("code"):
+        auth_emp = Employee.query.filter_by(
+            agency_id=agency.id, employee_code=data.get("code")
+        ).first()
+    if not auth_emp and data.get("authEmployeeId"):
+        try:
+            auth_emp = Employee.query.filter_by(
+                id=int(data["authEmployeeId"]), agency_id=agency.id
+            ).first()
+        except (TypeError, ValueError):
+            auth_emp = None
+
+    emp_ids = {str(record.id)}
+    if auth_emp:
+        emp_ids.add(str(auth_emp.id))
+    if data.get("code"):
+        emp_ids.add(str(data.get("code")))
+    if data.get("authEmployeeId"):
+        emp_ids.add(str(data.get("authEmployeeId")))
+
+    leave_rows_all = (
+        HrRecord.query.filter_by(agency_id=agency.id, kind="leave")
+        .order_by(HrRecord.id.desc())
+        .all()
+    )
+    leave_recs = [
+        r
+        for r in leave_rows_all
+        if str((r.data or {}).get("employee") or "") in emp_ids
+    ]
+    leaves = []
+    for r in leave_recs:
+        d = r.data or {}
+        leaves.append(
+            {
+                "id": r.id,
+                "type": d.get("type") or "—",
+                "from": d.get("from") or "—",
+                "to": d.get("to") or "—",
+                "status": d.get("status") or "—",
+                "reason": d.get("reason") or "",
+                "days": leave_day_count(d) if d.get("from") and d.get("to") else 0,
+            }
+        )
+
+    leave_balance = None
+    if auth_emp:
+        leave_balance = annual_leave_balance(auth_emp, leaves=leave_recs)
+
+    join_date = (data.get("joining") or "").strip() or "—"
+    contract_end = (
+        (data.get("contractEnd") or data.get("contract_end") or "").strip() or "—"
+    )
+    contract_start = (data.get("contractStart") or "").strip() or "—"
+
+    generated_at = datetime.utcnow().strftime("%d %b %Y · %H:%M UTC")
+
+    return render_template(
+        "modules/employee_report.html",
+        agency=agency,
+        record=record,
+        data=data,
+        auth_emp=auth_emp,
+        leaves=leaves,
+        leave_balance=leave_balance,
+        join_date=join_date,
+        contract_start=contract_start,
+        contract_end=contract_end,
+        generated_at=generated_at,
+    )
+
+
 @bp.route("/<kind>", methods=["GET", "POST"])
 @login_required
 @admin_required

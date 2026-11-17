@@ -73,6 +73,7 @@
                 <button type="button" class="icon-action action-menu-btn" onclick="toggleActionMenu(this)" title="More actions" aria-label="More actions">⋮</button>
                 <div class="header-dropdown action-dropdown">
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id) }}"><strong>Profile</strong></a>
+                  <a class="header-dropdown-row" href="{{ url_for('modules.employee_report', record_id=row.id) }}"><strong>Report</strong></a>
                 </div>
               </div>
             </div>

@@ -1056,6 +1056,7 @@ def _employee_app_access_action(agency, action):
         from app.mail_utils import (
             build_app_credentials_email,
             normalize_recipient_email,
+            resolve_agency_logo_file,
             send_email,
         )
 
@@ -1086,6 +1087,7 @@ def _employee_app_access_action(agency, action):
                 auth.email = to_email
             data["email"] = to_email
             rec.data = data
+        # Company of this employee's agency (logo + name in email)
         company = (agency.company_name or agency.name or "HR").strip()
         emp_name = (auth.full_name or data.get("name") or "Employee").strip()
         # Always send From U.Technologies mailbox → employee email on file
@@ -1094,15 +1096,16 @@ def _employee_app_access_action(agency, action):
             or current_app.config.get("MAIL_USERNAME")
             or "info@udottechnologies.com"
         )
-        logo_path = (agency.logo_path or "").strip() or "green-mile-logo.png"
-        logo_url = url_for("static", filename=logo_path, _external=True)
+        logo_file = resolve_agency_logo_file(agency.logo_path)
+        logo_cid = "company-logo" if logo_file else None
         plain, html_body = build_app_credentials_email(
             company=company,
             employee_name=emp_name,
             login_id=auth.employee_code,
             pin=pin,
-            logo_url=logo_url,
+            logo_cid=logo_cid,
         )
+        inline = {logo_cid: logo_file} if logo_file and logo_cid else None
         ok, err = send_email(
             to_addr=to_email,
             subject=f"{company} — mobile app access",
@@ -1110,6 +1113,7 @@ def _employee_app_access_action(agency, action):
             html_body=html_body,
             from_addr=from_addr,
             from_name=f"{company} HR",
+            inline_images=inline,
         )
         if not ok:
             return _done("", error=err, status=502)

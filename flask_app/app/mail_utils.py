@@ -107,6 +107,32 @@ def _smtp_send(msg: EmailMessage, *, host: str, port: int, user: str, password: 
         smtp.send_message(msg)
 
 
+def _guess_image_type(path: Path) -> tuple[str, str]:
+    ext = path.suffix.lower().lstrip(".")
+    mapping = {
+        "png": ("image", "png"),
+        "jpg": ("image", "jpeg"),
+        "jpeg": ("image", "jpeg"),
+        "gif": ("image", "gif"),
+        "webp": ("image", "webp"),
+    }
+    return mapping.get(ext, ("application", "octet-stream"))
+
+
+def resolve_agency_logo_file(logo_path: str | None) -> Path | None:
+    """Resolve agency logo under Flask static (falls back to green-mile-logo.png)."""
+    static_root = Path(current_app.root_path) / "static"
+    candidates: list[Path] = []
+    rel = (logo_path or "").strip().lstrip("/\\")
+    if rel:
+        candidates.append(static_root / rel)
+    candidates.append(static_root / "green-mile-logo.png")
+    for path in candidates:
+        if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+            return path
+    return None
+
+
 def send_email(
     *,
     to_addr: str,
@@ -115,8 +141,13 @@ def send_email(
     html_body: str | None = None,
     from_addr: str | None = None,
     from_name: str | None = None,
+    inline_images: dict[str, Path] | None = None,
 ) -> tuple[bool, str]:
-    """Send email (plain + optional HTML). Returns (ok, error_message)."""
+    """Send email (plain + optional HTML). Returns (ok, error_message).
+
+    ``inline_images`` maps Content-ID (without brackets) → image file path,
+    e.g. ``{"company-logo": Path(".../logo.png")}`` for ``cid:company-logo``.
+    """
     to_addr = (to_addr or "").strip()
     if not to_addr or "@" not in to_addr:
         return False, "Recipient email is missing or invalid."
@@ -137,6 +168,22 @@ def send_email(
     msg.set_content(body or " ")
     if html_body:
         msg.add_alternative(html_body, subtype="html")
+        html_part = msg.get_payload()[-1]
+        for cid, path in (inline_images or {}).items():
+            try:
+                file_path = Path(path)
+                if not file_path.is_file():
+                    continue
+                maintype, subtype = _guess_image_type(file_path)
+                html_part.add_related(
+                    file_path.read_bytes(),
+                    maintype=maintype,
+                    subtype=subtype,
+                    cid=f"<{cid}>",
+                    filename=file_path.name,
+                )
+            except Exception:
+                continue
 
     host = s["server"]
     user = s["username"]
@@ -200,16 +247,21 @@ def build_app_credentials_email(
     login_id: str,
     pin: str,
     logo_url: str | None = None,
+    logo_cid: str | None = "company-logo",
     login_url: str | None = None,  # unused — kept for call-site compatibility
     apk_url: str | None = None,  # unused — kept for call-site compatibility
 ) -> tuple[str, str]:
-    """Minimal credentials email: logo, company, greeting, ID/PIN, privacy, regards."""
+    """Minimal credentials email: company logo, name, greeting, ID/PIN, privacy, regards."""
     del login_url, apk_url
     company_s = (company or "HR").strip()
     name_s = (employee_name or "Employee").strip()
     login_s = str(login_id or "").strip()
     pin_s = str(pin or "").strip()
-    logo_s = (logo_url or "").strip()
+    logo_src = ""
+    if logo_cid:
+        logo_src = f"cid:{logo_cid}"
+    elif logo_url:
+        logo_src = (logo_url or "").strip()
 
     plain = (
         f"{company_s}\n"
@@ -227,11 +279,11 @@ def build_app_credentials_email(
     lid = html.escape(login_s)
     p = html.escape(pin_s)
     logo_block = ""
-    if logo_s:
+    if logo_src:
         logo_block = (
-            f'<img src="{html.escape(logo_s)}" alt="{c}" width="72" height="72" '
-            'style="display:block;margin:0 auto 12px;border:0;border-radius:10px;'
-            'object-fit:contain;background:#ffffff;">'
+            f'<img src="{html.escape(logo_src)}" alt="{c}" width="88" height="88" '
+            'style="display:block;margin:0 auto 12px;border:0;border-radius:12px;'
+            'object-fit:contain;background:#ffffff;padding:6px;">'
         )
 
     html_body = f"""<!DOCTYPE html>

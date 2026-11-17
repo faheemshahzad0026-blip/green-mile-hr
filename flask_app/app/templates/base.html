@@ -36,7 +36,22 @@
   <script src="{{ url_for('static', filename='js/logo-editor.js') }}"></script>
   <script src="{{ url_for('static', filename='js/doc-viewer.js') }}"></script>
   <script>
-    function toggleSidebar(){document.getElementById('sidebar')?.classList.toggle('open');}
+    function setSidebarOpen(open){
+      const sb=document.getElementById('sidebar');
+      if(!sb) return;
+      const isOpen=!!open;
+      sb.classList.toggle('open', isOpen);
+      document.body.classList.toggle('sidebar-open', isOpen);
+      document.body.style.overflow=isOpen?'hidden':'';
+      document.querySelectorAll('.mobile-toggle').forEach(function(btn){
+        btn.setAttribute('aria-expanded', isOpen?'true':'false');
+        btn.setAttribute('aria-label', isOpen?'Close menu':'Open menu');
+      });
+    }
+    function toggleSidebar(){
+      const sb=document.getElementById('sidebar');
+      setSidebarOpen(!(sb&&sb.classList.contains('open')));
+    }
     function toggleHeaderMenu(btn){
       const menu=btn&&btn.closest('.header-menu');
       if(!menu) return;
@@ -51,6 +66,13 @@
         if(window.__gmNotifyHoldUntil && Date.now()<window.__gmNotifyHoldUntil) return;
         document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
       });
+      document.addEventListener('click',function(e){
+        if(e.target.closest('.sidebar a.nav, .sidebar a.brand')) setSidebarOpen(false);
+      });
+      document.addEventListener('keydown',function(e){
+        if(e.key==='Escape') setSidebarOpen(false);
+      });
+      document.addEventListener('gm:ready',function(){ setSidebarOpen(false); });
     }
   </script>
   {% endblock %}

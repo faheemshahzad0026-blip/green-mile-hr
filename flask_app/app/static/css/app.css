@@ -336,6 +336,8 @@ textarea{border:1px solid #dfe7d7;border-radius:6px;padding:10px 11px;background
 .icon-lock,.icon-action{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:8px;background:#e4edda;border:1px solid #b9cbaa;text-decoration:none;font-size:15px;cursor:pointer;padding:0;color:#2a4f32;line-height:1;flex-shrink:0}
 .icon-lock.allowed{background:#dceccf;border-color:#8fbc6e}
 .icon-lock.blocked{background:#f6e9df;border-color:#d6ad9a}
+.icon-app-access svg{display:block}
+.app-cred-pin-visible{letter-spacing:.18em;font-weight:750;font-size:18px;color:#163f25!important}
 .icon-action:hover{background:#d5e6c8;border-color:#8fbc6e}
 .icon-action.danger{background:#f6e9df;border-color:#d6ad9a;color:#8a3f2e}
 .icon-action.danger:hover{background:#f0d8c8;border-color:#c48a72}

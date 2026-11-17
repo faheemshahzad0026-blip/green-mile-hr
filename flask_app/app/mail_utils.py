@@ -10,9 +10,22 @@ from email.message import EmailMessage
 from flask import current_app
 
 
-def mail_configured() -> bool:
+def mail_missing() -> str:
+    """Return which mail settings are missing (empty string if ready)."""
     cfg = current_app.config
-    return bool(cfg.get("MAIL_SERVER") and cfg.get("MAIL_USERNAME") and cfg.get("MAIL_PASSWORD"))
+    missing = []
+    if not (cfg.get("MAIL_SERVER") or "").strip():
+        missing.append("MAIL_SERVER")
+    if not (cfg.get("MAIL_USERNAME") or "").strip():
+        missing.append("MAIL_USERNAME")
+    password = (cfg.get("MAIL_PASSWORD") or "").strip()
+    if not password or password in {"PASTE_MAILBOX_PASSWORD_HERE", "your-mailbox-password", "changeme"}:
+        missing.append("MAIL_PASSWORD")
+    return ", ".join(missing)
+
+
+def mail_configured() -> bool:
+    return not mail_missing()
 
 
 def send_email(
@@ -28,8 +41,9 @@ def send_email(
     to_addr = (to_addr or "").strip()
     if not to_addr or "@" not in to_addr:
         return False, "Recipient email is missing or invalid."
-    if not mail_configured():
-        return False, "Email is not configured. Set MAIL_SERVER / MAIL_USERNAME / MAIL_PASSWORD on the server."
+    missing = mail_missing()
+    if missing:
+        return False, f"Email is not configured. Missing in .env: {missing}."
 
     cfg = current_app.config
     sender = (from_addr or cfg.get("MAIL_DEFAULT_SENDER") or cfg.get("MAIL_USERNAME") or "").strip()

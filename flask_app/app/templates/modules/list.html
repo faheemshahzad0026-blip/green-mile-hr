@@ -327,14 +327,25 @@
         </label>
         <div class="app-share-row" id="appShareRow">
           <button type="button" class="app-share-btn" id="appShareEmailBtn" onclick="shareCredentialsEmail()" disabled>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="app-share-mail-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 4h16v16H4z"/>
               <path d="M4 7l8 6 8-6"/>
+            </svg>
+            <svg class="app-share-spin-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.6-6.3"/>
+              <path d="M21 3v6h-6"/>
             </svg>
             <span class="app-share-label">Send email</span>
           </button>
           <span class="app-share-to" id="appShareTo">No email on file</span>
         </div>
+      </div>
+    </div>
+    <div class="app-send-block" id="appSendBlock" hidden aria-hidden="true">
+      <div class="app-send-block-card" role="status" aria-live="polite">
+        <span class="app-send-block-spinner" aria-hidden="true"></span>
+        <strong>Sending email…</strong>
+        <span>Please wait — don’t close this window.</span>
       </div>
     </div>
   </div>
@@ -543,13 +554,37 @@ function openAppAccessModal(el){
     }).catch(function(){});
   }
 }
+function _setAppSendBusy(busy){
+  const modal=document.getElementById('appAccessModal');
+  const block=document.getElementById('appSendBlock');
+  const btn=document.getElementById('appShareEmailBtn');
+  const label=btn&&btn.querySelector('.app-share-label');
+  window.__appSendBusy=!!busy;
+  if(modal) modal.classList.toggle('is-sending', !!busy);
+  if(block){
+    block.hidden=!busy;
+    block.setAttribute('aria-hidden', busy?'false':'true');
+  }
+  if(btn){
+    btn.classList.toggle('is-busy', !!busy);
+    if(busy){
+      btn.disabled=true;
+      btn.dataset.prevLabel=label?label.textContent:'Send email';
+      if(label) label.textContent='Sending…';
+    }else if(label){
+      label.textContent=btn.dataset.prevLabel||'Send email';
+    }
+  }
+}
 function shareCredentialsEmail(){
   const btn=document.getElementById('appShareEmailBtn');
   const msg=document.getElementById('appStatusMsg');
-  if(btn){ if(btn.disabled||btn.classList.contains('is-busy')) return; btn.classList.add('is-busy'); btn.disabled=true; }
+  if(window.__appSendBusy) return;
+  if(btn&&(btn.disabled||btn.classList.contains('is-busy'))) return;
+  _setAppSendBusy(true);
   if(msg){msg.hidden=false;msg.textContent='Sending email…';msg.className='app-access-status-msg';}
   _appAccessPost('share_credentials').then(function(res){
-    if(btn){ btn.classList.remove('is-busy'); }
+    _setAppSendBusy(false);
     const pinEl=document.getElementById('appCredPin');
     const hasPin=!!(pinEl&&/^\d{6}$/.test(String(pinEl.value||'')));
     const allowed=document.getElementById('appStatusSelect')?.value==='allowed';
@@ -560,7 +595,7 @@ function shareCredentialsEmail(){
     }
     if(msg){msg.textContent=res.data.message||'Email sent.';msg.className='app-access-status-msg is-ok';}
   }).catch(function(){
-    if(btn){ btn.classList.remove('is-busy'); }
+    _setAppSendBusy(false);
     const pinEl=document.getElementById('appCredPin');
     const hasPin=!!(pinEl&&/^\d{6}$/.test(String(pinEl.value||'')));
     const allowed=document.getElementById('appStatusSelect')?.value==='allowed';
@@ -587,9 +622,11 @@ function toggleAppPinVisibility(){
   setAppPinVisible(input.type==='password');
 }
 function closeAppAccessModal(){
+  if(window.__appSendBusy) return;
   const modal=document.getElementById('appAccessModal');
   if(!modal) return;
   setAppPinVisible(false);
+  _setAppSendBusy(false);
   modal.hidden=true;
   document.body.style.overflow='';
 }
@@ -710,7 +747,10 @@ window.__gmAppAccessClick=function(e){
     document.querySelectorAll('.header-menu.open').forEach(m=>m.classList.remove('open'));
     openAppAccessModal(btn);
   }
-  if(e.target.id==='appAccessModal') closeAppAccessModal();
+  if(e.target.id==='appAccessModal'){
+    if(window.__appSendBusy) return;
+    closeAppAccessModal();
+  }
 };
 document.addEventListener('click', window.__gmAppAccessClick);
 

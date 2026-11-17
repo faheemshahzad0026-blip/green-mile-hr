@@ -520,9 +520,6 @@ NAV = [
     ("shifts", "Shifts & schedules", "workspace"),
     ("announcements", "HR announcements", "workspace"),
     ("departments", "Departments", "workspace"),
-    ("assets", "Company assets", "workspace"),
-    ("recruitment", "Recruitment", "admin"),
-    ("reports", "Reports", "admin"),
     ("backup", "Backup", "admin"),
     ("settings", "Company settings", "admin"),
 ]

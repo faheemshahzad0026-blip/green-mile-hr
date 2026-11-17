@@ -34,11 +34,8 @@
       <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'shifts' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='shifts') }}"><span>Shifts &amp; schedules</span></a>
       <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'announcements' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='announcements') }}"><span>HR announcements</span></a>
       <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'departments' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='departments') }}"><span>Departments</span></a>
-      <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'assets' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='assets') }}"><span>Company assets</span></a>
 
       <div class="nav-label">ADMINISTRATION</div>
-      <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'recruitment' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='recruitment') }}"><span>Recruitment</span></a>
-      <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'reports' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='reports') }}"><span>Reports</span></a>
       <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'backup' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='backup') }}"><span>Backup</span></a>
       <a class="nav {% if request.endpoint == 'modules.module_list' and request.view_args.get('kind') == 'settings' %}active{% endif %}" href="{{ url_for('modules.module_list', kind='settings') }}"><span>Company settings</span></a>
     </div>

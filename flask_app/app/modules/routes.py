@@ -976,8 +976,6 @@ def _employee_app_access_action(agency, action):
             or current_app.config.get("MAIL_USERNAME")
             or "info@udottechnologies.com"
         )
-        login_url = url_for("auth.employee_login", _external=True)
-        apk_url = url_for("employee.download_apk_page", _external=True)
         logo_path = (agency.logo_path or "").strip() or "green-mile-logo.png"
         logo_url = url_for("static", filename=logo_path, _external=True)
         plain, html_body = build_app_credentials_email(
@@ -985,13 +983,11 @@ def _employee_app_access_action(agency, action):
             employee_name=emp_name,
             login_id=auth.employee_code,
             pin=pin,
-            login_url=login_url,
-            apk_url=apk_url,
             logo_url=logo_url,
         )
         ok, err = send_email(
             to_addr=to_email,
-            subject=f"{company} — welcome & app login details",
+            subject=f"{company} — mobile app access",
             body=plain,
             html_body=html_body,
             from_addr=from_addr,

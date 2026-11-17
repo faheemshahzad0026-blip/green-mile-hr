@@ -70,7 +70,7 @@
                 <button type="submit" class="icon-action danger" title="Delete employee" aria-label="Delete employee">🗑</button>
               </form>
               <div class="header-menu action-menu">
-                <button type="button" class="icon-action action-menu-btn" onclick="toggleActionMenu(this)" title="More actions" aria-label="More actions">⋮</button>
+                <button type="button" class="icon-action action-menu-btn" onclick="toggleActionMenu(this)" title="More actions" aria-label="More actions" aria-expanded="false" aria-haspopup="true">⋮</button>
                 <div class="header-dropdown action-dropdown">
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id) }}"><strong>Profile</strong></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_report', record_id=row.id) }}"><strong>Report</strong></a>
@@ -469,6 +469,12 @@ window.__gmEmpModalKey=function(e){
 document.addEventListener('click', window.__gmEmpModalClick);
 document.addEventListener('keydown', window.__gmEmpModalKey);
 
+function _syncActionMenuBtns(){
+  document.querySelectorAll('.action-menu').forEach(function(m){
+    const b=m.querySelector('.action-menu-btn');
+    if(b) b.setAttribute('aria-expanded', m.classList.contains('open')?'true':'false');
+  });
+}
 function toggleActionMenu(btn){
   const menu=btn&&btn.closest('.action-menu');
   if(!menu) return;
@@ -476,8 +482,8 @@ function toggleActionMenu(btn){
   document.querySelectorAll('.action-menu.open').forEach(function(m){
     m.classList.remove('open');
   });
-  if(open) return;
-  menu.classList.add('open');
+  if(!open) menu.classList.add('open');
+  _syncActionMenuBtns();
 }
 if(window.__gmActionMenuClick) document.removeEventListener('click', window.__gmActionMenuClick, true);
 window.__gmActionMenuClick=function(e){
@@ -485,6 +491,7 @@ window.__gmActionMenuClick=function(e){
   document.querySelectorAll('.action-menu.open').forEach(function(m){
     m.classList.remove('open');
   });
+  _syncActionMenuBtns();
 };
 document.addEventListener('click', window.__gmActionMenuClick, true);
 if(!window.__gmActionMenuScrollBound){
@@ -493,6 +500,7 @@ if(!window.__gmActionMenuScrollBound){
   document.addEventListener('keydown', function(e){
     if(e.key==='Escape'){
       document.querySelectorAll('.action-menu.open').forEach(function(m){ m.classList.remove('open'); });
+      _syncActionMenuBtns();
     }
   });
 }

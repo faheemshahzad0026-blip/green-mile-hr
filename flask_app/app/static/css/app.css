@@ -353,6 +353,15 @@ textarea{border:1px solid #dfe7d7;border-radius:6px;padding:10px 11px;background
 .icon-action.danger:hover{background:#f0d8c8;border-color:#c48a72}
 .icon-action-form{display:inline-grid;margin:0;padding:0}
 .action-menu-btn.icon-action{font-size:18px;font-weight:500;letter-spacing:0}
+.action-menu.open .action-menu-btn,
+.action-menu-btn[aria-expanded="true"]{
+  background:#163c22!important;border-color:#163c22!important;color:#f4f9ef!important;
+  box-shadow:0 0 0 3px #163c2230;
+}
+.action-menu.open .action-menu-btn:hover,
+.action-menu-btn[aria-expanded="true"]:hover{
+  background:#1f5130!important;border-color:#1f5130!important;color:#fff!important;
+}
 a.icon-action{color:inherit}
 .correction-review .icon-action{flex-shrink:0}
 .cell-clip{

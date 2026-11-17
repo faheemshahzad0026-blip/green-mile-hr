@@ -352,9 +352,7 @@ textarea{border:1px solid #dfe7d7;border-radius:6px;padding:10px 11px;background
 .icon-action.danger{background:#f6e9df;border-color:#d6ad9a;color:#8a3f2e}
 .icon-action.danger:hover{background:#f0d8c8;border-color:#c48a72}
 .icon-action-form{display:inline-grid;margin:0;padding:0}
-.action-menu .action-dropdown{width:300px;max-height:min(70vh,480px);overflow:auto}
 .action-menu-btn.icon-action{font-size:18px;font-weight:500;letter-spacing:0}
-.action-dropdown{right:0}
 a.icon-action{color:inherit}
 .correction-review .icon-action{flex-shrink:0}
 .cell-clip{

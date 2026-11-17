@@ -644,8 +644,17 @@ a.icon-action{color:inherit}
   .dash-kpi strong{font-size:26px}
   .dash-chart-wrap,.dash-ga-chart{height:220px;padding:6px 8px 4px}
   .dash-ga-legend{gap:6px 10px;padding:8px 10px 14px;justify-content:flex-start}
-  .dash-pie-card-inner{grid-template-columns:1fr;gap:8px}
-  .dash-pie-chart{height:150px}
+  /* Keep pie beside details on mobile — smaller chart, still in one row */
+  .dash-pie-card-inner{
+    grid-template-columns:minmax(0,1fr) minmax(88px,108px);
+    gap:8px;align-items:center;
+  }
+  .dash-pie-chart{
+    height:96px;width:100%;max-width:108px;justify-self:end;align-self:center;
+  }
+  .dash-pie-headline strong{font-size:24px}
+  .dash-pie-legend{gap:5px}
+  .dash-pie-legend li{font-size:11px;gap:6px}
 }
 
 /* Inline add/edit forms: scroll with the page (not trapped like modal .form-body) */
@@ -984,9 +993,14 @@ tr.row-focus{outline:2px solid #2f6fb5;outline-offset:-2px;background:#e8f1fb}
   .dash-ga-legend-item{flex:0 0 auto;padding:8px 10px;font-size:11px;white-space:nowrap}
   .dash-pie-grid,.dash-lists{gap:12px;margin-bottom:14px}
   .dash-pie-card,.dash-list-card{min-height:0;border-radius:14px}
-  .dash-pie-card-inner{padding:14px;gap:10px}
-  .dash-pie-headline strong{font-size:28px}
-  .dash-pie-chart{height:140px}
+  .dash-pie-card-inner{
+    padding:12px;gap:8px;
+    grid-template-columns:minmax(0,1fr) minmax(84px,100px);
+  }
+  .dash-pie-headline strong{font-size:22px}
+  .dash-pie-detail-head h2{font-size:14px}
+  .dash-pie-detail-head p{font-size:11px}
+  .dash-pie-chart{height:88px;max-width:100px}
   .dash-people-compact{max-height:160px}
   .dash-chart-tooltip{max-width:min(240px,calc(100vw - 24px));font-size:11px}
 

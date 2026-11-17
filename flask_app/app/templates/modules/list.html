@@ -72,8 +72,6 @@
                 <button type="button" class="icon-action action-menu-btn" onclick="toggleActionMenu(this)" title="More actions" aria-label="More actions">⋮</button>
                 <div class="header-dropdown action-dropdown">
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id) }}"><strong>Open profile</strong><span>Full employee workspace</span></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='devices', employee=row.emp_ref) }}"><strong>Face &amp; fingerprint</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='gratuity') }}"><strong>End of service</strong></a>
                 </div>
               </div>
             </div>
@@ -461,46 +459,32 @@ document.addEventListener('click', window.__gmEmpModalClick);
 document.addEventListener('keydown', window.__gmEmpModalKey);
 
 function toggleActionMenu(btn){
-  const menu=btn.closest('.header-menu');
-  const drop=menu.querySelector('.header-dropdown');
+  const menu=btn&&btn.closest('.action-menu');
+  if(!menu) return;
   const open=menu.classList.contains('open');
-  document.querySelectorAll('.header-menu.open').forEach(m=>{
+  document.querySelectorAll('.action-menu.open').forEach(function(m){
     m.classList.remove('open');
-    const d=m.querySelector('.header-dropdown');
-    if(d){d.style.position='';d.style.top='';d.style.left='';d.style.right='';d.style.bottom='';}
   });
   if(open) return;
   menu.classList.add('open');
-  const rect=btn.getBoundingClientRect();
-  drop.style.position='fixed';
-  drop.style.zIndex='80';
-  drop.style.width='300px';
-  drop.style.maxHeight='min(70vh, 480px)';
-  drop.style.overflow='auto';
-  const spaceBelow=window.innerHeight-rect.bottom-12;
-  const spaceAbove=rect.top-12;
-  if(spaceBelow<220 && spaceAbove>spaceBelow){
-    drop.style.bottom=(window.innerHeight-rect.top+8)+'px';
-    drop.style.top='auto';
-  }else{
-    drop.style.top=(rect.bottom+8)+'px';
-    drop.style.bottom='auto';
-  }
-  const right=Math.max(12, window.innerWidth-rect.right);
-  drop.style.right=right+'px';
-  drop.style.left='auto';
 }
-if(window.__gmActionMenuClick) document.removeEventListener('click', window.__gmActionMenuClick);
+if(window.__gmActionMenuClick) document.removeEventListener('click', window.__gmActionMenuClick, true);
 window.__gmActionMenuClick=function(e){
-  if(!e.target.closest('.header-menu')){
-    document.querySelectorAll('.action-menu.open').forEach(m=>{
-      m.classList.remove('open');
-      const d=m.querySelector('.header-dropdown');
-      if(d){d.style.position='';d.style.top='';d.style.left='';d.style.right='';d.style.bottom='';}
-    });
-  }
+  if(e.target.closest('.action-menu')) return;
+  document.querySelectorAll('.action-menu.open').forEach(function(m){
+    m.classList.remove('open');
+  });
 };
-document.addEventListener('click', window.__gmActionMenuClick);
+document.addEventListener('click', window.__gmActionMenuClick, true);
+if(!window.__gmActionMenuScrollBound){
+  window.__gmActionMenuScrollBound=true;
+  // Keep menu open with its row while scrolling; only close on outside click / Escape
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape'){
+      document.querySelectorAll('.action-menu.open').forEach(function(m){ m.classList.remove('open'); });
+    }
+  });
+}
 
 function openAppAccessModal(el){
   const modal=document.getElementById('appAccessModal');

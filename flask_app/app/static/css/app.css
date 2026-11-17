@@ -332,7 +332,17 @@ textarea{border:1px solid #dfe7d7;border-radius:6px;padding:10px 11px;background
 @media(max-width:900px){.header-search{max-width:none}.timezone,.date-chip{display:none}.doc-upload-box{grid-template-columns:1fr}.header-dropdown{width:min(320px,calc(100vw - 24px))}}
 
 /* Employee listing action menu + lock */
-.action-drop{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.action-drop{display:flex;align-items:center;gap:8px;justify-content:flex-end;position:relative}
+.action-menu{position:relative;z-index:5}
+.action-menu.open{z-index:40}
+.action-menu .action-dropdown{
+  position:absolute;right:0;top:calc(100% + 6px);left:auto;bottom:auto;
+  width:260px;max-height:min(60vh,360px);overflow:auto;
+  z-index:50;margin:0;
+}
+.action-menu.open .action-dropdown{display:block}
+.table-card tbody tr{position:relative}
+.table-card tbody tr:has(.action-menu.open){z-index:30}
 .icon-lock,.icon-action{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e4edda;border:1px solid #b9cbaa;text-decoration:none;font-size:13px;cursor:pointer;padding:0;color:#2a4f32;line-height:1;flex-shrink:0}
 .icon-lock.allowed{background:#dceccf;border-color:#8fbc6e}
 .icon-lock.blocked{background:#f6e9df;border-color:#d6ad9a}

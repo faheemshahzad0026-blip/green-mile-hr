@@ -45,21 +45,16 @@
             <div class="action-drop">
               <button
                 type="button"
-                class="icon-lock icon-app-access {% if row.app_allowed %}allowed{% else %}blocked{% endif %}"
-                title="App access · view PIN"
-                aria-label="App access · view PIN"
+                class="icon-lock {% if row.app_allowed %}allowed{% else %}blocked{% endif %}"
+                title="App access"
+                aria-label="App access"
                 data-app-open="{{ row.id }}"
                 data-name="{{ row.name }}"
                 data-code="{{ row.employee_code }}"
                 data-allowed="{{ '1' if row.app_allowed else '0' }}"
                 data-employment="{{ row.employment_status }}"
                 data-pin="{{ row.reveal_pin }}"
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
+              >🔒</button>
               <button
                 type="button"
                 class="icon-action"
@@ -283,16 +278,17 @@
         <input type="hidden" id="appStatusId" value="">
         <label class="app-access-status-label">
           <span>App login</span>
-          <select id="appStatusSelect" onchange="setAppStatusAjax(this.value)">
+          <select id="appStatusSelect">
             <option value="not_allowed">Not allowed</option>
             <option value="allowed">Allow</option>
           </select>
         </label>
+        <button type="button" class="primary app-access-save" id="appStatusSaveBtn" onclick="saveAppStatus()">Save</button>
         <p class="app-access-status-msg" id="appStatusMsg" hidden></p>
       </div>
 
       <p class="app-access-hint" id="appBlockedHint" hidden>
-        App login is not allowed. The employee cannot sign in until you select Allow.
+        App login is not allowed by default. Select Allow and Save to generate Login ID and access code.
         If blocked later, they see: ID disabled. Please contact HR department.
       </p>
 
@@ -312,7 +308,19 @@
         <label class="app-login-field">
           <span>Access code (PIN)</span>
           <div class="app-login-input-row">
-            <input type="text" id="appCredPin" class="app-cred-pin-visible" readonly value="" autocomplete="off" inputmode="numeric" placeholder="Generate PIN to view">
+            <input type="password" id="appCredPin" readonly value="" autocomplete="off" inputmode="numeric" placeholder="Allow + Save to generate">
+            <button type="button" class="app-icon-btn" id="appPinEyeBtn" onclick="toggleAppPinVisibility()" title="Show access code" aria-label="Show access code" aria-pressed="false">
+              <svg class="app-eye-open" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="app-eye-closed" hidden viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94"/>
+                <path d="M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 7 11 7a21.9 21.9 0 0 1-2.16 3.19"/>
+                <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88"/>
+                <path d="M1 1l22 22"/>
+              </svg>
+            </button>
             <button type="button" class="app-pin-refresh" id="appPinRefreshBtn" onclick="resetPinAjax()" title="Regenerate PIN" aria-label="Regenerate PIN">
               <svg class="app-spin-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 12a9 9 0 1 1-2.6-6.3"/>
@@ -503,35 +511,51 @@ function openAppAccessModal(el){
   const code=el.getAttribute('data-code')||'—';
   const allowed=el.getAttribute('data-allowed')==='1';
   const pin=el.getAttribute('data-pin')||'';
+  const hasPin=!!(pin && !String(pin).includes('•'));
   document.getElementById('appAccessTitle').textContent=name;
   document.getElementById('appAccessSub').textContent='Employee ID '+code;
   document.getElementById('appStatusId').value=id;
   document.getElementById('appStatusSelect').value=allowed?'allowed':'not_allowed';
-  document.getElementById('appCredId').value=code;
+  document.getElementById('appCredId').value=code||'';
   const pinInput=document.getElementById('appCredPin');
   if(pinInput){
-    pinInput.type='text';
-    pinInput.value=(pin && !String(pin).includes('•')) ? pin : '';
-    pinInput.placeholder=(pin && !String(pin).includes('•')) ? '' : 'Click refresh to generate PIN';
+    pinInput.value=hasPin?pin:'';
+    pinInput.placeholder=hasPin?'':'Allow + Save to generate';
   }
+  setAppPinVisible(false);
+  const eye=document.getElementById('appPinEyeBtn');
+  if(eye) eye.disabled=!hasPin;
   const hint=document.getElementById('appBlockedHint');
   if(hint) hint.hidden=allowed;
   const msg=document.getElementById('appStatusMsg');
-  if(msg){
-    msg.hidden=!(!(pin && !String(pin).includes('•')));
-    if(!msg.hidden){
-      msg.textContent='PIN is shown here after generate/allow. Use refresh to create a new visible PIN.';
-      msg.className='app-access-status-msg';
-    }else{
-      msg.textContent='';
-    }
-  }
+  if(msg){msg.hidden=true;msg.textContent='';}
   modal.hidden=false;
   document.body.style.overflow='hidden';
+}
+function setAppPinVisible(show){
+  const input=document.getElementById('appCredPin');
+  const btn=document.getElementById('appPinEyeBtn');
+  if(!input||!btn) return;
+  const hasPin=!!(input.value && !String(input.value).includes('•'));
+  if(!hasPin) show=false;
+  input.type=show?'text':'password';
+  btn.setAttribute('aria-pressed', show?'true':'false');
+  btn.title=show?'Hide access code':'Show access code';
+  btn.setAttribute('aria-label', show?'Hide access code':'Show access code');
+  const open=btn.querySelector('.app-eye-open');
+  const closed=btn.querySelector('.app-eye-closed');
+  if(open) open.hidden=!!show;
+  if(closed) closed.hidden=!show;
+}
+function toggleAppPinVisibility(){
+  const input=document.getElementById('appCredPin');
+  if(!input||!input.value) return;
+  setAppPinVisible(input.type==='password');
 }
 function closeAppAccessModal(){
   const modal=document.getElementById('appAccessModal');
   if(!modal) return;
+  setAppPinVisible(false);
   modal.hidden=true;
   document.body.style.overflow='';
 }
@@ -586,28 +610,47 @@ function _syncAppAllowedUI(allowed, pin){
   const hint=document.getElementById('appBlockedHint');
   if(hint) hint.hidden=!!allowed;
 }
-function setAppStatusAjax(status){
+function saveAppStatus(){
   const select=document.getElementById('appStatusSelect');
+  const saveBtn=document.getElementById('appStatusSaveBtn');
   const msg=document.getElementById('appStatusMsg');
+  const status=select?select.value:'not_allowed';
   if(select) select.disabled=true;
+  if(saveBtn) saveBtn.disabled=true;
   if(msg){msg.hidden=false;msg.textContent='Saving…';msg.className='app-access-status-msg';}
   _appAccessPost('set_app_status',{status:status}).then(function(res){
     if(select) select.disabled=false;
+    if(saveBtn) saveBtn.disabled=false;
     if(!res.ok||!res.data||!res.data.ok){
       if(msg){msg.textContent=(res.data&&res.data.error)||'Could not update.';msg.className='app-access-status-msg is-error';}
       return;
     }
     const allowed=!!res.data.allowed;
     if(select) select.value=allowed?'allowed':'not_allowed';
-    if(res.data.pin){
-      const pinEl=document.getElementById('appCredPin');
-      if(pinEl){ pinEl.type='text'; pinEl.value=res.data.pin; }
-    }
     if(res.data.code) document.getElementById('appCredId').value=res.data.code;
+    const pinEl=document.getElementById('appCredPin');
+    const eye=document.getElementById('appPinEyeBtn');
+    if(res.data.pin && pinEl){
+      pinEl.value=res.data.pin;
+      pinEl.placeholder='';
+      if(eye) eye.disabled=false;
+      setAppPinVisible(true); // briefly show so HR can confirm, they can hide with eye
+    }else if(pinEl && !allowed){
+      pinEl.value='';
+      pinEl.placeholder='Allow + Save to generate';
+      if(eye) eye.disabled=true;
+      setAppPinVisible(false);
+    }
     _syncAppAllowedUI(allowed, res.data.pin||'');
-    if(msg){msg.textContent=res.data.message||'Saved.';msg.className='app-access-status-msg is-ok';}
+    if(msg){
+      msg.textContent=allowed
+        ? (res.data.message||'Allowed. Login ID and access code are ready — use the eye to view the PIN.')
+        : (res.data.message||'App login not allowed.');
+      msg.className='app-access-status-msg is-ok';
+    }
   }).catch(function(){
     if(select) select.disabled=false;
+    if(saveBtn) saveBtn.disabled=false;
     if(msg){msg.hidden=false;msg.textContent='Network error.';msg.className='app-access-status-msg is-error';}
   });
 }
@@ -627,7 +670,10 @@ function resetPinAjax(){
     }
     if(res.data.pin){
       const pinEl=document.getElementById('appCredPin');
-      if(pinEl){ pinEl.type='text'; pinEl.value=res.data.pin; }
+      const eye=document.getElementById('appPinEyeBtn');
+      if(pinEl){ pinEl.value=res.data.pin; pinEl.placeholder=''; }
+      if(eye) eye.disabled=false;
+      setAppPinVisible(true);
       _syncAppAllowedUI(document.getElementById('appStatusSelect').value==='allowed', res.data.pin);
     }
   }).catch(function(){

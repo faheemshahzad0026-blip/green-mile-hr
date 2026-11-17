@@ -649,11 +649,9 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
                 db.session.flush()
                 write_audit("hr_create", f"{kind}", agency_id=agency.id)
             db.session.commit()
-            if kind == "employees" and generated_pin:
-                session[f"reveal_pin_{rec.id}"] = generated_pin
-                return redirect(url_for("modules.module_list", kind="employees", app=rec.id))
+            # New employees start with app Not allowed; PIN is revealed only after Allow + Save
             if kind == "employees" and not record_id:
-                return redirect(url_for("modules.module_list", kind="employees", app=rec.id))
+                return redirect(url_for("modules.module_list", kind="employees"))
         except ValueError as exc:
             db.session.rollback()
             flash(str(exc), "danger")
@@ -861,10 +859,10 @@ def _employee_app_access_action(agency, action):
         status = (request.form.get("status") or "not_allowed").strip()
         if status == "allowed":
             auth.is_active = True
-            if not session.get(f"reveal_pin_{rec.id}"):
-                new_pin = f"{secrets.randbelow(1000000):06d}"
-                auth.set_pin(new_pin)
-                session[f"reveal_pin_{rec.id}"] = new_pin
+            # Mint / refresh PIN so HR can view it with the eye after Save
+            new_pin = f"{secrets.randbelow(1000000):06d}"
+            auth.set_pin(new_pin)
+            session[f"reveal_pin_{rec.id}"] = new_pin
             write_audit(
                 "app_access_toggle",
                 f"{auth.employee_code} active=True",
@@ -872,9 +870,9 @@ def _employee_app_access_action(agency, action):
             )
             db.session.commit()
             return _done(
-                "App login allowed. Employee can sign in with Login ID and PIN.",
+                "App login allowed. Login ID and access code are ready.",
                 allowed=True,
-                pin=session.get(f"reveal_pin_{rec.id}", ""),
+                pin=new_pin,
                 code_val=auth.employee_code,
             )
         auth.is_active = False

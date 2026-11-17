@@ -390,8 +390,9 @@ a.icon-action{color:inherit}
 .app-access-head h3{
   margin:8px 0 0;font-size:16px;font-weight:400;color:#4f6a45;line-height:1.35;
 }
-.app-access-status-form{margin:0 0 16px}
-.app-access-status-label{display:flex;flex-direction:column;gap:7px;font-weight:500;color:#335c2b;font-size:13px}
+.app-access-status-form{margin:0 0 16px;display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end}
+.app-access-status-label{display:flex;flex-direction:column;gap:7px;font-weight:400;color:#335c2b;font-size:13px;flex:1;min-width:160px}
+.app-access-save{min-height:36px!important;padding:8px 16px!important;margin:0}
 .app-access-status-label select{
   min-height:44px;border:1px solid #b7d09a;border-radius:10px;background:#f7faf2;
   padding:10px 12px;font-size:14px;color:#163f25;font-weight:500;

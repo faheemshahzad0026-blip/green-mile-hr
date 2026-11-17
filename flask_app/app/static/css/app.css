@@ -1237,8 +1237,15 @@ strong,b,th,h1,h2,h3,h4,.nav,.badge,.eyebrow,.brand,.company-brand strong{font-w
 .emp-report-status.status-pending{background:#fff3d6;color:#7a5a12}
 .emp-report-status.status-rejected{background:#fde4e4;color:#8a2a2a}
 .emp-report-empty{margin:0;padding:18px 4px;color:#6a8268;font-size:13px}
-.emp-report-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;padding-top:4px}
-.emp-report-back,.emp-report-print{min-height:34px!important;padding:7px 14px!important;font-size:12px!important}
+.heading-actions .emp-report-icon-btn{
+  width:34px;height:34px;border-radius:9px;
+}
+.heading-actions .emp-report-print-btn{
+  background:#163c22;border-color:#163c22;color:#f4f9ef;
+}
+.heading-actions .emp-report-print-btn:hover{
+  background:#1f5130;border-color:#1f5130;color:#fff;filter:none;
+}
 @media(max-width:900px){
   .emp-report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .emp-report-grid{grid-template-columns:1fr}

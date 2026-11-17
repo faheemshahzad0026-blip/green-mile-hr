@@ -3,30 +3,15 @@
 {% block heading %}Employee report{% endblock %}
 {% block description %}{{ data.name or 'Employee' }} · {{ data.code or '—' }}{% endblock %}
 {% block heading_actions %}
-<a class="secondary emp-report-back" href="{{ url_for('modules.module_list', kind='employees') }}">← Back to employees</a>
-<button type="button" class="primary emp-report-print" onclick="window.print()">Generate / Print</button>
+<a class="icon-action emp-report-icon-btn" href="{{ url_for('modules.module_list', kind='employees') }}" title="Back to employees" aria-label="Back to employees">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/><path d="M9 12h11"/></svg>
+</a>
+<button type="button" class="icon-action emp-report-icon-btn emp-report-print-btn" onclick="window.print()" title="Generate / Print report" aria-label="Generate / Print report">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg>
+</button>
 {% endblock %}
 {% block content %}
 <div class="emp-report" id="employeeReport">
-  <section class="emp-report-hero">
-    <div class="emp-report-hero-main">
-      {% if agency.logo_path %}
-      <img class="emp-report-logo" src="{{ url_for('static', filename=agency.logo_path) }}" alt="">
-      {% else %}
-      <img class="emp-report-logo" src="{{ url_for('static', filename='green-mile-logo.png') }}" alt="">
-      {% endif %}
-      <div>
-        <p class="emp-report-eyebrow">{{ agency.company_name or agency.name }}</p>
-        <h2 class="emp-report-name">{{ data.name or 'Employee' }}</h2>
-        <p class="emp-report-meta">Employee ID {{ data.code or '—' }} · {{ data.designation or '—' }} · {{ data.department or '—' }}</p>
-      </div>
-    </div>
-    <div class="emp-report-stamp">
-      <span>Generated</span>
-      <strong>{{ generated_at }}</strong>
-    </div>
-  </section>
-
   <section class="emp-report-kpis">
     <article class="emp-report-kpi">
       <span>Total leave pool</span>
@@ -134,9 +119,5 @@
     {% endif %}
   </section>
 
-  <div class="emp-report-actions no-print">
-    <a class="secondary" href="{{ url_for('modules.module_list', kind='employees') }}">← Back to employees</a>
-    <button type="button" class="primary" onclick="window.print()">Generate / Print report</button>
-  </div>
 </div>
 {% endblock %}

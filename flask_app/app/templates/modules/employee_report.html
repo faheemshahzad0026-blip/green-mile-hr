@@ -12,6 +12,18 @@
 {% endblock %}
 {% block content %}
 <div class="emp-report" id="employeeReport">
+  <header class="emp-report-print-head">
+    <div>
+      <p class="emp-report-print-company">{{ agency.company_name or agency.name }}</p>
+      <h2>{{ data.name or 'Employee' }}</h2>
+      <p>Employee ID {{ data.code or '—' }} · {{ data.designation or '—' }} · {{ data.department or '—' }}</p>
+    </div>
+    <div class="emp-report-print-meta">
+      <span>Employee report</span>
+      <strong>{{ generated_at }}</strong>
+    </div>
+  </header>
+
   <section class="emp-report-kpis">
     <article class="emp-report-kpi">
       <span>Total leave pool</span>

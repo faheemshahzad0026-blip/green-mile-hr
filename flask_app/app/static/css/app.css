@@ -1259,6 +1259,7 @@ strong,b,th,h1,h2,h3,h4,.nav,.badge,.eyebrow,.brand,.company-brand strong{font-w
 .heading-actions .emp-report-print-btn:hover{
   background:#1f5130;border-color:#1f5130;color:#fff;filter:none;
 }
+.emp-report-print-head{display:none}
 @media(max-width:900px){
   .emp-report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .emp-report-grid{grid-template-columns:1fr}
@@ -1269,9 +1270,72 @@ strong,b,th,h1,h2,h3,h4,.nav,.badge,.eyebrow,.brand,.company-brand strong{font-w
   .emp-report-name{font-size:20px}
 }
 @media print{
-  .sidebar,.scrim,.topbar,.page-head,.heading-actions,.no-print,.emp-report-actions,.flash,.toast{display:none!important}
-  .app,.main,.content,.page{padding:0!important;margin:0!important;background:#fff!important;box-shadow:none!important}
-  .emp-report{max-width:none}
-  .emp-report-hero,.emp-report-kpi.accent,.emp-report-date.highlight{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:A4;margin:12mm}
+  html,body{background:#fff!important;color:#163c22!important}
+  body *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .app-loader,.sidebar,.scrim,.topbar,.page-heading,.heading-actions,.eyebrow,
+  .mobile-toggle,.no-print,.flash,.toast,.header-search,.period-menu{display:none!important}
+  .app{display:block!important;min-height:0!important}
+  .main{
+    margin:0!important;width:100%!important;max-width:none!important;
+    padding:0!important;background:#fff!important;box-shadow:none!important;
+  }
+  .content{padding:0!important;margin:0!important;background:#fff!important;font-size:12px!important}
+  .emp-report{max-width:none!important;gap:12px!important;display:block!important}
+  .emp-report-print-head{
+    display:flex!important;justify-content:space-between;align-items:flex-end;gap:12px;
+    margin:0 0 14px;padding:0 0 10px;border-bottom:2px solid #163c22;
+  }
+  .emp-report-print-company{
+    margin:0 0 4px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#5d7a5a;
+  }
+  .emp-report-print-head h2{margin:0;font-size:18px;line-height:1.2;color:#163c22}
+  .emp-report-print-head p{margin:4px 0 0;font-size:11px;color:#4a6a4f}
+  .emp-report-print-meta{text-align:right}
+  .emp-report-print-meta span{display:block;font-size:10px;color:#5d7a5a;margin-bottom:2px}
+  .emp-report-print-meta strong{font-size:11px;font-weight:500;color:#163c22}
+  .emp-report-kpis{
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:8px!important;margin:0 0 12px;page-break-inside:avoid;
+  }
+  .emp-report-kpi{
+    padding:10px!important;border:1px solid #b7d09a!important;border-radius:8px!important;
+    background:#f7faf2!important;box-shadow:none!important;
+  }
+  .emp-report-kpi.accent{
+    background:#f0f6e8!important;border:2px solid #163c22!important;color:#163c22!important;
+  }
+  .emp-report-kpi.accent span,.emp-report-kpi.accent small{color:#5d7a5a!important}
+  .emp-report-kpi.accent strong{color:#163c22!important}
+  .emp-report-kpi strong{font-size:20px!important}
+  .emp-report-kpi span,.emp-report-kpi small{font-size:10px!important}
+  .emp-report-grid{
+    display:grid!important;grid-template-columns:1.2fr .8fr!important;gap:10px!important;
+    margin:0 0 12px;page-break-inside:avoid;
+  }
+  .emp-report-card{
+    break-inside:avoid;page-break-inside:avoid;
+    padding:12px!important;border:1px solid #c5d6b4!important;border-radius:8px!important;
+    background:#fff!important;box-shadow:none!important;
+  }
+  .emp-report-date{
+    background:#f4f9ef!important;border:1px solid #d5e4c6!important;
+  }
+  .emp-report-date.highlight{
+    background:#fff!important;border:2px solid #163c22!important;
+  }
+  .emp-report-date.highlight span{color:#5d7a5a!important}
+  .emp-report-date.highlight strong{color:#163c22!important}
+  .emp-report-leaves{page-break-before:auto}
+  .emp-report .table-scroll{
+    overflow:visible!important;max-height:none!important;
+  }
+  .emp-report-table{width:100%!important;font-size:11px!important}
+  .emp-report-table th,.emp-report-table td{
+    padding:6px 7px!important;border-bottom:1px solid #d5e4c6!important;
+  }
+  .emp-report-status{
+    border:1px solid #b7d09a;background:#fff!important;color:#163c22!important;
+  }
 }
 

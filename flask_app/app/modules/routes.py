@@ -183,22 +183,50 @@ def _employment_status(data):
 
 
 def _sync_auth_employee(agency_id, data, record_id=None):
-    """Keep Employee login row in sync when saving employees module."""
+    """Keep Employee login row in sync when saving employees module.
+
+    App login allow/block (``Employee.is_active``) is only changed from the
+    App Login modal — never reset when HR edits the employee form.
+    """
     import secrets
 
-    code = (data.get("code") or "").strip()
+    from app.mail_utils import normalize_recipient_email
+
+    prev = {}
+    if record_id:
+        prev_rec = HrRecord.query.filter_by(
+            id=int(record_id), agency_id=agency_id, kind="employees"
+        ).first()
+        if prev_rec:
+            prev = dict(prev_rec.data or {})
+
+    # Prefer existing employee code / auth link on edit (form has no code field)
+    code = (data.get("code") or prev.get("code") or "").strip()
     if not code:
         code = next_employee_code(agency_id)
-        data["code"] = code
+    data["code"] = code
+
+    auth_id = data.get("authEmployeeId") or prev.get("authEmployeeId")
     pin = (data.get("pin") or "").strip()
     generated_pin = None
-    emp = Employee.query.filter_by(agency_id=agency_id, employee_code=code).first()
+
+    emp = None
+    if auth_id:
+        try:
+            emp = Employee.query.filter_by(
+                id=int(auth_id), agency_id=agency_id
+            ).first()
+        except (TypeError, ValueError):
+            emp = None
+    if not emp:
+        emp = Employee.query.filter_by(
+            agency_id=agency_id, employee_code=code
+        ).first()
+
     if not emp:
         if not re.fullmatch(r"\d{6}", pin or ""):
             generated_pin = f"{secrets.randbelow(1000000):06d}"
             pin = generated_pin
-        from app.mail_utils import normalize_recipient_email
-
         emp = Employee(
             agency_id=agency_id,
             employee_code=code,
@@ -207,23 +235,25 @@ def _sync_auth_employee(agency_id, data, record_id=None):
             email=normalize_recipient_email(data.get("email")) or None,
             designation=data.get("designation"),
             department=data.get("department"),
-            # App login default: Not allowed until HR selects Allow in App Login modal
+            # New rows only — Not allowed until HR selects Allow
             is_active=False,
         )
         emp.set_pin(pin)
         db.session.add(emp)
+        db.session.flush()
     else:
-        from app.mail_utils import normalize_recipient_email
-
+        emp.employee_code = code
         emp.full_name = data.get("name") or emp.full_name
         emp.phone = data.get("phone")
         emp.email = normalize_recipient_email(data.get("email")) or None
         emp.designation = data.get("designation")
         emp.department = data.get("department")
-        # Employment Active/Inactive is separate from app allow/block (emp.is_active).
+        # Do NOT touch emp.is_active here — keep Allow / Not allowed as set in App Login
         if pin and re.fullmatch(r"\d{6}", pin):
             emp.set_pin(pin)
             generated_pin = pin
+
+    data["authEmployeeId"] = emp.id
     data.pop("pin", None)
     data["_generated_pin"] = generated_pin
     return data

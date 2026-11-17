@@ -413,6 +413,26 @@ a.icon-action{color:inherit}
   flex:1;min-height:34px;border:1px solid #b7d09a;border-radius:8px;background:#fff;
   padding:7px 10px;font-size:13px;font-weight:400;letter-spacing:.04em;color:#163c22;
 }
+.app-pin-wrap{
+  position:relative;flex:1;min-width:0;display:block!important;
+}
+.app-pin-wrap .app-cred-pin,
+.app-pin-wrap #appCredPin{
+  width:100%!important;box-sizing:border-box!important;
+  min-height:36px!important;padding:8px 42px 8px 12px!important;
+  font-size:15px!important;font-weight:500!important;letter-spacing:.22em!important;
+  border:1px solid #b7d09a!important;border-radius:8px!important;background:#fff!important;
+  color:#163c22!important;
+}
+.app-pin-wrap .app-pin-eye.login-eye{
+  position:absolute;right:4px;top:0;bottom:0;margin:auto;
+  width:32px!important;height:32px!important;min-height:32px!important;
+  border:0!important;background:transparent!important;color:#4f6a45;
+  box-shadow:none!important;
+}
+.app-pin-wrap .app-pin-eye.login-eye:hover{background:#e8f1dc!important;color:#176344}
+.app-pin-wrap .app-pin-eye.login-eye:disabled{opacity:.35;cursor:not-allowed}
+.app-pin-wrap .app-pin-eye svg{width:18px;height:18px}
 .app-icon-btn,.app-pin-refresh{
   width:34px;height:34px;border:1px solid #b7d09a;border-radius:8px;background:#eef5e6;
   color:#335c2b;display:inline-grid;place-items:center;cursor:pointer;padding:0;flex-shrink:0;

@@ -583,6 +583,7 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
         if kind == "employees" and action in {
             "toggle_app",
             "reset_pin",
+            "peek_pin",
             "set_pin",
             "allow_app",
             "block_app",
@@ -859,10 +860,12 @@ def _employee_app_access_action(agency, action):
         status = (request.form.get("status") or "not_allowed").strip()
         if status == "allowed":
             auth.is_active = True
-            # Mint / refresh PIN so HR can view it with the eye after Save
-            new_pin = f"{secrets.randbelow(1000000):06d}"
-            auth.set_pin(new_pin)
-            session[f"reveal_pin_{rec.id}"] = new_pin
+            # Keep existing revealed PIN; only mint when HR has none to view
+            new_pin = session.get(f"reveal_pin_{rec.id}")
+            if not new_pin or not re.fullmatch(r"\d{6}", str(new_pin)):
+                new_pin = f"{secrets.randbelow(1000000):06d}"
+                auth.set_pin(new_pin)
+                session[f"reveal_pin_{rec.id}"] = new_pin
             write_audit(
                 "app_access_toggle",
                 f"{auth.employee_code} active=True",
@@ -872,7 +875,7 @@ def _employee_app_access_action(agency, action):
             return _done(
                 "App login allowed. Login ID and access code are ready.",
                 allowed=True,
-                pin=new_pin,
+                pin=session.get(f"reveal_pin_{rec.id}", ""),
                 code_val=auth.employee_code,
             )
         auth.is_active = False
@@ -909,6 +912,14 @@ def _employee_app_access_action(agency, action):
             "App login allowed. Copy Login ID and PIN for the employee.",
             allowed=True,
             pin=session.get(f"reveal_pin_{rec.id}", ""),
+            code_val=auth.employee_code,
+        )
+    if action == "peek_pin":
+        pin = session.get(f"reveal_pin_{rec.id}", "")
+        return _done(
+            "PIN ready." if pin else "No PIN in session — click refresh to generate.",
+            allowed=auth.is_active,
+            pin=pin,
             code_val=auth.employee_code,
         )
     if action == "reset_pin":

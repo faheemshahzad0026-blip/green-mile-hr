@@ -34,3 +34,11 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_HTTPONLY = True
     SESSION_REFRESH_EACH_REQUEST = True
+    # Outbound mail (cPanel SMTP). Used to email app login credentials to employees.
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "").strip()
+    MAIL_PORT = int(os.getenv("MAIL_PORT", "465") or 465)
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "").strip()
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+    MAIL_USE_SSL = os.getenv("MAIL_USE_SSL", "1").strip().lower() in {"1", "true", "yes"}
+    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "0").strip().lower() in {"1", "true", "yes"}
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "").strip()

@@ -54,6 +54,7 @@
                 data-allowed="{{ '1' if row.app_allowed else '0' }}"
                 data-employment="{{ row.employment_status }}"
                 data-pin="{{ row.reveal_pin }}"
+                data-email="{{ row.employee_email or '' }}"
               >🔒</button>
               <button
                 type="button"
@@ -324,6 +325,16 @@
             </button>
           </div>
         </label>
+        <div class="app-share-row" id="appShareRow">
+          <button type="button" class="app-share-btn" id="appShareEmailBtn" onclick="shareCredentialsEmail()" disabled>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 4h16v16H4z"/>
+              <path d="M4 7l8 6 8-6"/>
+            </svg>
+            <span class="app-share-label">Send email</span>
+          </button>
+          <span class="app-share-to" id="appShareTo">No email on file</span>
+        </div>
       </div>
     </div>
   </div>
@@ -486,6 +497,19 @@ function _applyPinToField(pin, show){
   setAppPinVisible(!!(hasPin && show));
   return hasPin;
 }
+function _setShareEmailUI(email, hasPin, allowed){
+  const btn=document.getElementById('appShareEmailBtn');
+  const to=document.getElementById('appShareTo');
+  const clean=(email||'').trim();
+  const okEmail=!!(clean && clean.indexOf('@')>0);
+  if(to) to.textContent=okEmail?('To '+clean):'No email on file';
+  if(btn){
+    btn.disabled=!(okEmail && hasPin && allowed);
+    btn.title=okEmail
+      ? (hasPin && allowed ? 'Email Login ID and PIN to employee' : 'Allow + Save first, then send')
+      : 'Add employee email on their record first';
+  }
+}
 function openAppAccessModal(el){
   const modal=document.getElementById('appAccessModal');
   if(!modal) return;
@@ -495,12 +519,15 @@ function openAppAccessModal(el){
   const code=el.getAttribute('data-code')||'—';
   const allowed=el.getAttribute('data-allowed')==='1';
   const pin=el.getAttribute('data-pin')||'';
+  const email=el.getAttribute('data-email')||'';
+  window.__appAccessEmail=email;
   document.getElementById('appAccessTitle').textContent=name;
   document.getElementById('appAccessSub').textContent='Employee ID '+code;
   document.getElementById('appStatusId').value=id;
   document.getElementById('appStatusSelect').value=allowed?'allowed':'not_allowed';
   document.getElementById('appCredId').value=code||'';
   const hasPin=_applyPinToField(pin, false); // PIN stays masked; eye reveals it
+  _setShareEmailUI(email, hasPin, allowed);
   const msg=document.getElementById('appStatusMsg');
   if(msg){msg.hidden=true;msg.textContent='';}
   modal.hidden=false;
@@ -511,9 +538,35 @@ function openAppAccessModal(el){
       if(res.ok && res.data && res.data.pin){
         _applyPinToField(res.data.pin, false);
         _syncAppAllowedUI(true, res.data.pin);
+        _setShareEmailUI(window.__appAccessEmail||email, true, true);
       }
     }).catch(function(){});
   }
+}
+function shareCredentialsEmail(){
+  const btn=document.getElementById('appShareEmailBtn');
+  const msg=document.getElementById('appStatusMsg');
+  if(btn){ if(btn.disabled||btn.classList.contains('is-busy')) return; btn.classList.add('is-busy'); btn.disabled=true; }
+  if(msg){msg.hidden=false;msg.textContent='Sending email…';msg.className='app-access-status-msg';}
+  _appAccessPost('share_credentials').then(function(res){
+    if(btn){ btn.classList.remove('is-busy'); }
+    const pinEl=document.getElementById('appCredPin');
+    const hasPin=!!(pinEl&&/^\d{6}$/.test(String(pinEl.value||'')));
+    const allowed=document.getElementById('appStatusSelect')?.value==='allowed';
+    _setShareEmailUI(window.__appAccessEmail||'', hasPin, allowed);
+    if(!res.ok||!res.data||!res.data.ok){
+      if(msg){msg.textContent=(res.data&&res.data.error)||'Could not send email.';msg.className='app-access-status-msg is-error';}
+      return;
+    }
+    if(msg){msg.textContent=res.data.message||'Email sent.';msg.className='app-access-status-msg is-ok';}
+  }).catch(function(){
+    if(btn){ btn.classList.remove('is-busy'); }
+    const pinEl=document.getElementById('appCredPin');
+    const hasPin=!!(pinEl&&/^\d{6}$/.test(String(pinEl.value||'')));
+    const allowed=document.getElementById('appStatusSelect')?.value==='allowed';
+    _setShareEmailUI(window.__appAccessEmail||'', hasPin, allowed);
+    if(msg){msg.hidden=false;msg.textContent='Network error.';msg.className='app-access-status-msg is-error';}
+  });
 }
 function setAppPinVisible(show){
   const input=document.getElementById('appCredPin');
@@ -588,6 +641,8 @@ function _syncAppAllowedUI(allowed, pin){
       node.classList.toggle('blocked', !allowed);
     }
   });
+  const hasPin=!!(pin && /^\d{6}$/.test(String(pin)));
+  _setShareEmailUI(window.__appAccessEmail||(el&&el.getAttribute('data-email'))||'', hasPin, !!allowed);
 }
 function saveAppStatus(){
   const select=document.getElementById('appStatusSelect');

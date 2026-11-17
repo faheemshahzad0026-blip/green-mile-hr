@@ -584,6 +584,7 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
             "toggle_app",
             "reset_pin",
             "peek_pin",
+            "share_credentials",
             "set_pin",
             "allow_app",
             "block_app",
@@ -744,6 +745,12 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
             pin = session.get(f"reveal_pin_{r.id}")
             if pin:
                 reveal_pins[str(r.id)] = pin
+        emp_email = ""
+        if kind == "employees":
+            emp_email = (
+                (auth.email if auth and auth.email else "")
+                or (data.get("email") or "")
+            ).strip()
         rows.append(
             {
                 "id": r.id,
@@ -756,6 +763,7 @@ def _module_crud(agency, kind, template="modules/list.html", tab=None, read_only
                 "emp_ref": emp_ref or str(r.id),
                 "employment_status": employment,
                 "reveal_pin": reveal_pins.get(str(r.id), ""),
+                "employee_email": emp_email,
                 "is_focus": focus_id and str(r.id) == focus_id,
             }
         )
@@ -919,6 +927,67 @@ def _employee_app_access_action(agency, action):
         return _done(
             "PIN ready." if pin else "No PIN in session — click refresh to generate.",
             allowed=auth.is_active,
+            pin=pin,
+            code_val=auth.employee_code,
+        )
+    if action == "share_credentials":
+        from app.mail_utils import send_email
+
+        pin = session.get(f"reveal_pin_{rec.id}", "")
+        if not pin or not re.fullmatch(r"\d{6}", str(pin)):
+            return _done(
+                "",
+                error="No PIN to share. Allow + Save or regenerate the PIN first.",
+                status=400,
+            )
+        if not auth.is_active:
+            return _done(
+                "",
+                error="App login is not allowed. Set Allow and Save before sharing.",
+                status=400,
+            )
+        to_email = (
+            (auth.email or "").strip()
+            or (data.get("email") or "").strip()
+        )
+        if not to_email or "@" not in to_email:
+            return _done(
+                "",
+                error="No employee email on file. Add email on the employee record first.",
+                status=400,
+            )
+        company = (agency.company_name or agency.name or "HR").strip()
+        from_addr = (agency.company_email or "").strip() or None
+        login_url = url_for("auth.employee_login", _external=True)
+        apk_url = url_for("employee.download_apk_page", _external=True)
+        body = (
+            f"Hello {auth.full_name or data.get('name') or 'Employee'},\n\n"
+            f"{company} has enabled your mobile app login.\n\n"
+            f"Login ID: {auth.employee_code}\n"
+            f"Access code (PIN): {pin}\n\n"
+            f"Employee login: {login_url}\n"
+            f"Android app: {apk_url}\n\n"
+            f"Please keep this PIN private. Contact HR if you need a new code.\n\n"
+            f"— {company} HR\n"
+        )
+        ok, err = send_email(
+            to_addr=to_email,
+            subject=f"{company} — your app login details",
+            body=body,
+            from_addr=from_addr,
+            from_name=f"{company} HR",
+        )
+        if not ok:
+            return _done("", error=err, status=502)
+        write_audit(
+            "app_credentials_emailed",
+            f"{auth.employee_code} → {to_email}",
+            agency_id=agency.id,
+        )
+        db.session.commit()
+        return _done(
+            f"Credentials emailed to {to_email}.",
+            allowed=True,
             pin=pin,
             code_val=auth.employee_code,
         )

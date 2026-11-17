@@ -443,6 +443,20 @@ a.icon-action{color:inherit}
 .app-pin-refresh.is-spinning .app-spin-icon,
 .app-pin-refresh.is-spinning .app-pin-refresh-icon{animation:appPinSpin .75s linear infinite}
 @keyframes appPinSpin{to{transform:rotate(360deg)}}
+.app-share-row{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-top:12px;padding-top:10px;border-top:1px solid #d5e4c6;
+}
+.app-share-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  min-height:34px;padding:0 12px;border:1px solid #b7d09a;border-radius:8px;
+  background:#163c22;color:#f3f8ec;font-size:13px;font-weight:500;cursor:pointer;
+}
+.app-share-btn:hover:not(:disabled){background:#1f5130}
+.app-share-btn:disabled{opacity:.45;cursor:not-allowed}
+.app-share-btn.is-busy{opacity:.7;cursor:wait}
+.app-share-btn svg{flex-shrink:0}
+.app-share-to{font-size:12px;color:#4a6a4f;letter-spacing:.01em}
 .app-access-close{
   flex-shrink:0;width:30px;height:30px;border:1px solid #c5d6b4;border-radius:8px;
   background:#e8f1dc;color:#2a4f34;font-size:13px;line-height:1;cursor:pointer;

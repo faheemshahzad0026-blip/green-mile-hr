@@ -931,7 +931,7 @@ def _employee_app_access_action(agency, action):
             code_val=auth.employee_code,
         )
     if action == "share_credentials":
-        from app.mail_utils import send_email
+        from app.mail_utils import build_app_credentials_email, send_email
 
         pin = session.get(f"reveal_pin_{rec.id}", "")
         if not pin or not re.fullmatch(r"\d{6}", str(pin)):
@@ -957,6 +957,7 @@ def _employee_app_access_action(agency, action):
                 status=400,
             )
         company = (agency.company_name or agency.name or "HR").strip()
+        emp_name = (auth.full_name or data.get("name") or "Employee").strip()
         # Always send From U.Technologies mailbox → employee email on file
         from_addr = (
             current_app.config.get("MAIL_DEFAULT_SENDER")
@@ -965,20 +966,22 @@ def _employee_app_access_action(agency, action):
         )
         login_url = url_for("auth.employee_login", _external=True)
         apk_url = url_for("employee.download_apk_page", _external=True)
-        body = (
-            f"Hello {auth.full_name or data.get('name') or 'Employee'},\n\n"
-            f"{company} has enabled your mobile app login.\n\n"
-            f"Login ID: {auth.employee_code}\n"
-            f"Access code (PIN): {pin}\n\n"
-            f"Employee login: {login_url}\n"
-            f"Android app: {apk_url}\n\n"
-            f"Please keep this PIN private. Contact HR if you need a new code.\n\n"
-            f"— {company} HR\n"
+        logo_path = (agency.logo_path or "").strip() or "green-mile-logo.png"
+        logo_url = url_for("static", filename=logo_path, _external=True)
+        plain, html_body = build_app_credentials_email(
+            company=company,
+            employee_name=emp_name,
+            login_id=auth.employee_code,
+            pin=pin,
+            login_url=login_url,
+            apk_url=apk_url,
+            logo_url=logo_url,
         )
         ok, err = send_email(
             to_addr=to_email,
-            subject=f"{company} — your app login details",
-            body=body,
+            subject=f"{company} — welcome & app login details",
+            body=plain,
+            html_body=html_body,
             from_addr=from_addr,
             from_name=f"{company} HR",
         )

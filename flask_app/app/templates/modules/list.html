@@ -159,7 +159,6 @@
         <div>
           <div class="eyebrow">{{ mod.title|upper }}</div>
           <h2 id="recordFormTitle">Add record</h2>
-          <p>{{ agency.company_name }}</p>
         </div>
         <button type="button" class="icon" onclick="closeRecordModal()" aria-label="Close">✕</button>
       </div>
@@ -215,7 +214,6 @@
         <div>
           <div class="eyebrow">EMPLOYEES</div>
           <h2 id="employeeFormTitle">Add employee</h2>
-          <p>{{ agency.company_name }}</p>
         </div>
         <button type="button" class="icon" onclick="closeEmployeeModal()" aria-label="Close">✕</button>
       </div>
@@ -251,7 +249,6 @@
           </label>
           {% endfor %}
         </div>
-        <p class="admin-login-note" id="employeePinNote" style="margin-top:12px">A 6-digit app PIN is created automatically. You’ll see Employee ID and PIN after save.</p>
       </div>
       <div class="modal-foot">
         <button type="button" class="secondary" onclick="closeEmployeeModal()">Cancel</button>
@@ -284,11 +281,6 @@
         <button type="button" class="primary app-access-save" id="appStatusSaveBtn" onclick="saveAppStatus()">Save</button>
         <p class="app-access-status-msg" id="appStatusMsg" hidden></p>
       </div>
-
-      <p class="app-access-hint" id="appBlockedHint" hidden>
-        App login is not allowed by default. Select Allow and Save to generate Login ID and access code.
-        If blocked later, they see: ID disabled. Please contact HR department.
-      </p>
 
       <div class="cred-box" id="appCredBox">
         <label class="app-login-field">
@@ -414,7 +406,6 @@ function openEmployeeModal(editId, data){
   form.reset();
   const idInput=document.getElementById('employeeFormId');
   const title=document.getElementById('employeeFormTitle');
-  const pinNote=document.getElementById('employeePinNote');
   const payload=data&&typeof data==='object'?data:{};
   form.querySelectorAll('[data-emp-field]').forEach(el=>{
     const key=el.getAttribute('data-emp-field');
@@ -426,11 +417,9 @@ function openEmployeeModal(editId, data){
   if(editId){
     idInput.value=String(editId);
     title.textContent='Edit employee';
-    if(pinNote) pinNote.hidden=true;
   }else{
     idInput.value='';
     title.textContent='Add employee';
-    if(pinNote) pinNote.hidden=false;
     const status=form.querySelector('[data-emp-field="status"]');
     if(status&&!status.value) status.value='Active';
   }
@@ -509,8 +498,6 @@ function openAppAccessModal(el){
   setAppPinVisible(false);
   const eye=document.getElementById('appPinEyeBtn');
   if(eye) eye.disabled=!hasPin;
-  const hint=document.getElementById('appBlockedHint');
-  if(hint) hint.hidden=allowed;
   const msg=document.getElementById('appStatusMsg');
   if(msg){msg.hidden=true;msg.textContent='';}
   modal.hidden=false;
@@ -591,8 +578,6 @@ function _syncAppAllowedUI(allowed, pin){
       node.classList.toggle('blocked', !allowed);
     }
   });
-  const hint=document.getElementById('appBlockedHint');
-  if(hint) hint.hidden=!!allowed;
 }
 function saveAppStatus(){
   const select=document.getElementById('appStatusSelect');

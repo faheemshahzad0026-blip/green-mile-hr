@@ -958,6 +958,12 @@ strong,b,th,h1,h2,h3,h4,.nav,.badge,.eyebrow,.brand,.company-brand strong{font-w
   .heading-actions .primary,.heading-actions .secondary{min-height:36px;font-size:13px}
 }
 
+/* Hide page/modal helper blurbs */
+.page-heading>div>p,
+.modal-head>div>p,
+.app-access-hint,
+.admin-login-note{display:none!important}
+
 /* —— Precise modern modals (override oversized defaults) —— */
 .modal-backdrop{
   padding:16px!important;

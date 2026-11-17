@@ -375,8 +375,21 @@ a.icon-action{color:inherit}
   .cell-clip{max-width:140px}
   .cell-clip-wide{max-width:160px}
 }
-.action-dropdown .header-dropdown-row{display:flex;flex-direction:column;gap:2px;width:100%;border:0;background:transparent;text-align:left;cursor:pointer;font:inherit;color:inherit;padding:12px 16px}
-.action-dropdown form .header-dropdown-row{width:100%}
+.action-dropdown .header-dropdown-row{
+  display:flex;flex-direction:column;gap:2px;width:100%;border:0;background:transparent;
+  text-align:left;cursor:pointer;font:inherit;color:#163c22;padding:11px 14px;
+  border-radius:8px;margin:2px 6px;width:calc(100% - 12px);box-sizing:border-box;
+  transition:background .15s ease,color .15s ease;
+}
+.action-dropdown .header-dropdown-row:hover,
+.action-dropdown .header-dropdown-row:focus-visible{
+  background:#163c22;color:#f4f9ef;outline:none;
+}
+.action-dropdown .header-dropdown-row:hover strong,
+.action-dropdown .header-dropdown-row:focus-visible strong,
+.action-dropdown .header-dropdown-row:hover span,
+.action-dropdown .header-dropdown-row:focus-visible span{color:inherit}
+.action-dropdown form .header-dropdown-row{width:calc(100% - 12px)}
 .table-card.employees-table,.table-card:has(.action-drop){overflow:visible}
 .table-card:has(.action-drop) .table-scroll{overflow-x:auto;overflow-y:visible}
 

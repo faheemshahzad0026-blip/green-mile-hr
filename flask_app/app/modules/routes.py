@@ -197,12 +197,14 @@ def _sync_auth_employee(agency_id, data, record_id=None):
         if not re.fullmatch(r"\d{6}", pin or ""):
             generated_pin = f"{secrets.randbelow(1000000):06d}"
             pin = generated_pin
+        from app.mail_utils import normalize_recipient_email
+
         emp = Employee(
             agency_id=agency_id,
             employee_code=code,
             full_name=data.get("name") or code,
             phone=data.get("phone"),
-            email=data.get("email"),
+            email=normalize_recipient_email(data.get("email")) or None,
             designation=data.get("designation"),
             department=data.get("department"),
             # App login default: Not allowed until HR selects Allow in App Login modal
@@ -211,9 +213,11 @@ def _sync_auth_employee(agency_id, data, record_id=None):
         emp.set_pin(pin)
         db.session.add(emp)
     else:
+        from app.mail_utils import normalize_recipient_email
+
         emp.full_name = data.get("name") or emp.full_name
         emp.phone = data.get("phone")
-        emp.email = data.get("email")
+        emp.email = normalize_recipient_email(data.get("email")) or None
         emp.designation = data.get("designation")
         emp.department = data.get("department")
         # Employment Active/Inactive is separate from app allow/block (emp.is_active).

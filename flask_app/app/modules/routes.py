@@ -931,7 +931,11 @@ def _employee_app_access_action(agency, action):
             code_val=auth.employee_code,
         )
     if action == "share_credentials":
-        from app.mail_utils import build_app_credentials_email, send_email
+        from app.mail_utils import (
+            build_app_credentials_email,
+            normalize_recipient_email,
+            send_email,
+        )
 
         pin = session.get(f"reveal_pin_{rec.id}", "")
         if not pin or not re.fullmatch(r"\d{6}", str(pin)):
@@ -946,16 +950,20 @@ def _employee_app_access_action(agency, action):
                 error="App login is not allowed. Set Allow and Save before sharing.",
                 status=400,
             )
-        to_email = (
-            (auth.email or "").strip()
-            or (data.get("email") or "").strip()
-        )
+        raw_email = (auth.email or "").strip() or (data.get("email") or "").strip()
+        to_email = normalize_recipient_email(raw_email)
         if not to_email or "@" not in to_email:
             return _done(
                 "",
                 error="No employee email on file. Add email on the employee record first.",
                 status=400,
             )
+        # Persist cleaned address so HR sees the real destination next time
+        if to_email != raw_email.lower().strip():
+            if auth.email:
+                auth.email = to_email
+            data["email"] = to_email
+            rec.data = data
         company = (agency.company_name or agency.name or "HR").strip()
         emp_name = (auth.full_name or data.get("name") or "Employee").strip()
         # Always send From U.Technologies mailbox → employee email on file

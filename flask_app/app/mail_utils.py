@@ -20,6 +20,29 @@ def _reload_mail_env() -> None:
         load_dotenv(env_path, override=True)
 
 
+def normalize_recipient_email(raw: str | None) -> str:
+    """Clean pasted emails like www.name@gmail.com → name@gmail.com."""
+    email = (raw or "").strip().lower()
+    if not email:
+        return ""
+    # Accidental URL paste
+    for prefix in ("mailto:", "https://", "http://"):
+        if email.startswith(prefix):
+            email = email[len(prefix) :]
+    email = email.strip().strip("/")
+    if "@" not in email:
+        return email
+    local, _, domain = email.partition("@")
+    local = local.strip()
+    domain = domain.strip()
+    # Common mistake: www. pasted onto the local part
+    if local.startswith("www."):
+        local = local[4:]
+    # Trailing junk from copy/paste
+    domain = domain.split("/")[0].split("?")[0].strip().rstrip(".,;")
+    return f"{local}@{domain}" if local and domain else ""
+
+
 def _mail_settings() -> dict:
     _reload_mail_env()
     cfg = current_app.config

@@ -500,7 +500,7 @@ function openAppAccessModal(el){
   document.getElementById('appStatusId').value=id;
   document.getElementById('appStatusSelect').value=allowed?'allowed':'not_allowed';
   document.getElementById('appCredId').value=code||'';
-  const hasPin=_applyPinToField(pin, true); // show generated PIN in field when known
+  const hasPin=_applyPinToField(pin, false); // PIN stays masked; eye reveals it
   const msg=document.getElementById('appStatusMsg');
   if(msg){msg.hidden=true;msg.textContent='';}
   modal.hidden=false;
@@ -509,7 +509,7 @@ function openAppAccessModal(el){
   if(allowed && !hasPin){
     _appAccessPost('peek_pin').then(function(res){
       if(res.ok && res.data && res.data.pin){
-        _applyPinToField(res.data.pin, true);
+        _applyPinToField(res.data.pin, false);
         _syncAppAllowedUI(true, res.data.pin);
       }
     }).catch(function(){});
@@ -608,14 +608,14 @@ function saveAppStatus(){
     if(select) select.value=allowed?'allowed':'not_allowed';
     if(res.data.code) document.getElementById('appCredId').value=res.data.code;
     if(res.data.pin){
-      _applyPinToField(res.data.pin, true);
+      _applyPinToField(res.data.pin, false);
     }else if(!allowed){
       _applyPinToField('', false);
     }
     _syncAppAllowedUI(allowed, res.data.pin||'');
     if(msg){
       msg.textContent=allowed
-        ? (res.data.message||'Allowed. Login ID and PIN are ready.')
+        ? (res.data.message||'Allowed. Login ID and PIN are ready — tap the eye to view.')
         : (res.data.message||'App login not allowed.');
       msg.className='app-access-status-msg is-ok';
     }
@@ -640,7 +640,7 @@ function resetPinAjax(){
       return;
     }
     if(res.data.pin){
-      _applyPinToField(res.data.pin, true);
+      _applyPinToField(res.data.pin, false);
       _syncAppAllowedUI(document.getElementById('appStatusSelect').value==='allowed', res.data.pin);
     }
   }).catch(function(){

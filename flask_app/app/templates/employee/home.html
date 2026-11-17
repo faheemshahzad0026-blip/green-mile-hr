@@ -184,6 +184,7 @@
   const trendCtx=document.getElementById('empTrendChart');
   let trendChart=null;
   if(trendCtx){
+    const narrow=window.matchMedia('(max-width:760px)').matches;
     const trendMax=Math.max(1, ...trendCheckins, ...trendCheckouts, ...trendOnLeave);
     trendChart=new Chart(trendCtx,{
       type:'line',
@@ -196,14 +197,29 @@
         ]
       },
       options:{
-        responsive:true, maintainAspectRatio:false,
+        responsive:true, maintainAspectRatio:false, resizeDelay:80,
+        layout:{padding:narrow?{top:4,right:4,left:0,bottom:2}:{top:8,right:12,left:4,bottom:0}},
         interaction:{mode:'index', intersect:false},
         plugins:{legend:{display:false}, tooltip:{...tipOpts}},
         scales:{
-          x:{border:{display:false}, grid:{display:false}, ticks:{color:'#5f6368', maxRotation:0}},
-          y:{beginAtZero:true, max:Math.max(2, trendMax), ticks:{precision:0, stepSize:1, color:'#5f6368'}, grid:{color:'rgba(60,64,67,.12)'}}
+          x:{
+            border:{display:false}, grid:{display:false},
+            ticks:{
+              color:'#5f6368', font:{size:narrow?10:11},
+              maxRotation:narrow?40:0, minRotation:0,
+              autoSkip:true, maxTicksLimit:narrow?6:12, padding:narrow?4:8
+            }
+          },
+          y:{
+            beginAtZero:true, max:Math.max(2, trendMax),
+            ticks:{precision:0, stepSize:1, color:'#5f6368', font:{size:narrow?10:11}},
+            grid:{color:'rgba(60,64,67,.12)'}
+          }
         }
       }
+    });
+    window.addEventListener('orientationchange', function(){
+      setTimeout(function(){ if(trendChart) trendChart.resize(); }, 180);
     });
     document.querySelectorAll('#empGaMetrics .dash-ga-legend-item').forEach(function(btn){
       btn.addEventListener('click', function(){

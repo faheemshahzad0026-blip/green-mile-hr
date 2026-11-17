@@ -274,6 +274,7 @@
   const trendCtx=document.getElementById('dashTrendChart');
   let trendChart=null;
   if(trendCtx){
+    const narrow=window.matchMedia('(max-width:760px)').matches;
     const trendMax=Math.max(
       0,
       ...trendEmployees, ...trendCheckins, ...trendCheckouts, ...trendOnLeave
@@ -292,8 +293,8 @@
         precision:0,
         stepSize:1,
         color:'#5f6368',
-        font:{size:11, family:"'Google Sans', Roboto, Arial, sans-serif"},
-        padding:10,
+        font:{size:narrow?10:11, family:"'Google Sans', Roboto, Arial, sans-serif"},
+        padding:narrow?6:10,
         callback:function(v){ return Number.isInteger(v)?v:''; }
       }
     };
@@ -317,7 +318,8 @@
       options:{
         responsive:true,
         maintainAspectRatio:false,
-        layout:{padding:{top:8, right:12, left:4, bottom:0}},
+        resizeDelay:80,
+        layout:{padding:narrow?{top:4,right:4,left:0,bottom:2}:{top:8, right:12, left:4, bottom:0}},
         interaction:{mode:'index', intersect:false},
         plugins:{
           legend:{display:false},
@@ -336,15 +338,21 @@
             grid:{display:false, drawTicks:false},
             ticks:{
               color:'#5f6368',
-              font:{size:11, family:"'Google Sans', Roboto, Arial, sans-serif"},
-              maxRotation:0,
-              padding:10
+              font:{size:narrow?10:11, family:"'Google Sans', Roboto, Arial, sans-serif"},
+              maxRotation:narrow?40:0,
+              minRotation:0,
+              autoSkip:true,
+              maxTicksLimit:narrow?6:12,
+              padding:narrow?4:10
             }
           },
           y:yScale
         }
       },
       plugins:[gaCrosshair]
+    });
+    window.addEventListener('orientationchange', function(){
+      setTimeout(function(){ if(trendChart) trendChart.resize(); }, 180);
     });
 
     // Metric chips toggle series (GA-style)

@@ -376,86 +376,87 @@ a.icon-action{color:inherit}
 .employee-form-backdrop{z-index:100}
 .employee-form-backdrop .modal{max-height:min(90vh,920px)}
 .employee-form-backdrop .form-body{max-height:min(60vh,560px)}
-.app-access-backdrop{background:#15362078;backdrop-filter:blur(2px)}
+.app-access-backdrop{background:#15362066;backdrop-filter:blur(3px)}
 .app-access-modal{
-  width:min(560px,100%);max-height:min(92dvh,860px);overflow:hidden;
-  background:#f3f7ec;border:1px solid #c5d6b4;border-radius:18px;
-  box-shadow:0 24px 80px #0f2a1840;display:flex;flex-direction:column;
+  width:min(420px,100%);max-height:min(88dvh,640px);overflow:hidden;
+  background:#f6f9f1;border:1px solid #c5d6b4;border-radius:14px;
+  box-shadow:0 18px 48px #0f2a1830;display:flex;flex-direction:column;
 }
 .app-access-head{
-  background:#f7faf3;border-bottom:1px solid #cfdcbc;padding:22px 24px;
-  align-items:flex-start;gap:16px;flex-shrink:0;
+  background:#fbfcf8;border-bottom:1px solid #d5e3c8;padding:14px 16px;
+  align-items:flex-start;gap:10px;flex-shrink:0;
 }
 .app-access-head .eyebrow{
-  margin:0 0 8px;font-size:11px;letter-spacing:1.6px;font-weight:400;color:#3f5f3a;
+  margin:0 0 4px;font-size:10px;letter-spacing:1.2px;font-weight:400;color:#5d7150;
 }
 .app-access-head .app-access-name,
 .app-access-head h1{
-  margin:0;font-size:26px;line-height:1.25;font-weight:500;color:#163f25;letter-spacing:-.02em;
+  margin:0;font-size:17px;line-height:1.25;font-weight:500;color:#163f25;letter-spacing:-.02em;
   word-break:break-word;
 }
 .app-access-head .app-access-id,
 .app-access-head h3{
-  margin:8px 0 0;font-size:16px;font-weight:400;color:#4f6a45;line-height:1.35;
+  margin:4px 0 0;font-size:12px;font-weight:400;color:#5d7150;line-height:1.35;
 }
-.app-access-status-form{margin:0 0 16px;display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end}
-.app-access-status-label{display:flex;flex-direction:column;gap:7px;font-weight:400;color:#335c2b;font-size:13px;flex:1;min-width:160px}
-.app-access-save{min-height:36px!important;padding:8px 16px!important;margin:0}
+.app-access-status-form{margin:0 0 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.app-access-status-label{display:flex;flex-direction:column;gap:5px;font-weight:400;color:#335c2b;font-size:12px;flex:1;min-width:140px}
+.app-access-save{min-height:34px!important;padding:7px 14px!important;margin:0;font-size:12px!important}
 .app-access-status-label select{
-  min-height:44px;border:1px solid #b7d09a;border-radius:10px;background:#f7faf2;
-  padding:10px 12px;font-size:14px;color:#163f25;font-weight:500;
+  min-height:34px;border:1px solid #b7d09a;border-radius:8px;background:#fff;
+  padding:6px 10px;font-size:13px;color:#163f25;font-weight:400;
 }
-.app-access-status-msg{margin:8px 0 0;font-size:12px;color:#3f5f3a;font-weight:500}
-.app-login-field{display:flex;flex-direction:column;gap:7px;margin:0 0 14px;font-weight:500;color:#335c2b;font-size:13px}
+.app-access-status-msg{margin:6px 0 0;font-size:11px;color:#3f5f3a;font-weight:400;flex-basis:100%}
+.app-login-field{display:flex;flex-direction:column;gap:5px;margin:0 0 10px;font-weight:400;color:#335c2b;font-size:12px}
 .app-login-field:last-child{margin-bottom:0}
-.app-login-input-row{display:flex;align-items:center;gap:8px}
+.app-login-input-row{display:flex;align-items:center;gap:6px}
 .app-login-input-row input{
-  flex:1;min-height:44px;border:1px solid #b7d09a;border-radius:10px;background:#fff;
-  padding:10px 12px;font-size:16px;font-weight:500;letter-spacing:.03em;color:#163c22;
+  flex:1;min-height:34px;border:1px solid #b7d09a;border-radius:8px;background:#fff;
+  padding:7px 10px;font-size:13px;font-weight:400;letter-spacing:.04em;color:#163c22;
 }
 .app-icon-btn,.app-pin-refresh{
-  width:44px;height:44px;border:1px solid #b7d09a;border-radius:10px;background:#eef5e6;
+  width:34px;height:34px;border:1px solid #b7d09a;border-radius:8px;background:#eef5e6;
   color:#335c2b;display:inline-grid;place-items:center;cursor:pointer;padding:0;flex-shrink:0;
 }
+.app-icon-btn svg,.app-pin-refresh svg{width:15px;height:15px}
 .app-icon-btn:hover,.app-pin-refresh:hover{background:#e0ebcf;color:#163f25}
 .app-pin-refresh .app-spin-icon,.app-pin-refresh-icon{display:block}
 .app-pin-refresh.is-spinning .app-spin-icon,
 .app-pin-refresh.is-spinning .app-pin-refresh-icon{animation:appPinSpin .75s linear infinite}
 @keyframes appPinSpin{to{transform:rotate(360deg)}}
 .app-access-close{
-  flex-shrink:0;width:36px;height:36px;border:1px solid #c5d6b4;border-radius:10px;
-  background:#e8f1dc;color:#2a4f34;font-size:16px;line-height:1;cursor:pointer;
+  flex-shrink:0;width:30px;height:30px;border:1px solid #c5d6b4;border-radius:8px;
+  background:#e8f1dc;color:#2a4f34;font-size:13px;line-height:1;cursor:pointer;
   display:inline-grid;place-items:center;padding:0;
 }
 .app-access-close:hover{background:#dce9cb;color:#163f25}
 .app-access-body{
-  background:#eef4e6;padding:20px 22px 22px;overflow-y:auto;flex:1;min-height:0;
+  background:#f1f6ea;padding:14px 16px 16px;overflow-y:auto;flex:1;min-height:0;
 }
 .app-access-hint{
-  margin:0 0 14px;padding:12px 14px;background:#f7efe6;border:1px solid #e0c4ae;
-  border-radius:12px;color:#5a4030;font-size:13px;line-height:1.5;font-weight:400;
+  margin:0 0 10px;padding:9px 11px;background:#f8f1e8;border:1px solid #e0c4ae;
+  border-radius:8px;color:#5a4030;font-size:11px;line-height:1.45;font-weight:400;
 }
 .cred-box{
-  margin:0;padding:16px 18px;background:#eaf3e0;border:1px solid #b7d09a;border-radius:14px;
+  margin:0;padding:12px 12px;background:#eaf3e0;border:1px solid #b7d09a;border-radius:10px;
 }
 .cred-box>p,.cred-note{display:none!important}
 .app-access-status-msg.is-ok{color:#176342}
 .app-access-status-msg.is-error{color:#a72f2f}
 .app-access-actions{
-  display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-start;
-  padding:16px 22px 20px;background:#f7faf3;border-top:1px solid #cfdcbc;
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-start;
+  padding:12px 16px;background:#fbfcf8;border-top:1px solid #d5e3c8;
   box-shadow:none;position:static;flex-shrink:0;
 }
 .app-access-actions form{margin:0}
 .app-access-actions .primary,.app-access-actions .secondary{
-  min-height:42px;padding:10px 16px;border-radius:10px;font-size:13px;
+  min-height:34px;padding:7px 12px;border-radius:8px;font-size:12px;
 }
 @media(max-width:560px){
   .app-access-meta{grid-template-columns:1fr}
   .app-access-meta>div:first-child{grid-column:auto}
-  .app-access-head .app-access-name,.app-access-head h1{font-size:22px}
-  .app-access-head .app-access-id,.app-access-head h3{font-size:16px}
-  .app-access-actions .primary,.app-access-actions .secondary{flex:1;min-width:140px}
+  .app-access-head .app-access-name,.app-access-head h1{font-size:16px}
+  .app-access-head .app-access-id,.app-access-head h3{font-size:12px}
+  .app-access-actions .primary,.app-access-actions .secondary{flex:1;min-width:120px}
 }
 
 /* —— Dashboard —— */
@@ -949,5 +950,134 @@ strong,b,th,h1,h2,h3,h4,.nav,.badge,.eyebrow,.brand,.company-brand strong{font-w
 }
 @media(max-width:760px){
   .heading-actions .primary,.heading-actions .secondary{min-height:36px;font-size:13px}
+}
+
+/* —— Precise modern modals (override oversized defaults) —— */
+.modal-backdrop{
+  padding:16px!important;
+  align-items:center;
+  background:#12332755!important;
+}
+.modal,
+.employee-form-backdrop .modal,
+.record-form-backdrop .modal{
+  width:min(560px,100%)!important;
+  max-height:min(88dvh,720px)!important;
+  border-radius:14px!important;
+  background:#f7faf3!important;
+  border:1px solid #c5d6b4;
+  box-shadow:0 16px 48px #0f2a1828!important;
+}
+.modal-head{
+  padding:14px 16px!important;
+  gap:10px!important;
+  background:#fbfcf8!important;
+  border-bottom:1px solid #d5e3c8!important;
+  align-items:flex-start!important;
+}
+.modal-head .eyebrow{
+  margin:0 0 4px!important;
+  font-size:10px!important;
+  letter-spacing:1.1px!important;
+  font-weight:400!important;
+  color:#5d7150!important;
+}
+.modal-head h2,
+.modal-head .app-access-name{
+  margin:0!important;
+  font-size:17px!important;
+  line-height:1.25!important;
+  font-weight:500!important;
+  letter-spacing:-.02em!important;
+  color:#163f25!important;
+}
+.modal-head .icon,
+.modal-head button.icon,
+.modal-head .app-access-close{
+  width:30px!important;
+  height:30px!important;
+  min-width:30px!important;
+  border-radius:8px!important;
+  font-size:13px!important;
+}
+.form-body{
+  padding:14px 16px!important;
+  background:#f1f6ea!important;
+}
+.form-grid{
+  gap:12px 14px!important;
+  margin-bottom:0!important;
+}
+.form-grid label{
+  font-size:12px!important;
+  font-weight:400!important;
+  color:#34552c!important;
+  gap:5px!important;
+}
+.field-label{
+  min-height:0!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  color:#4f6a45!important;
+}
+.modal input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=submit]):not([type=button]),
+.modal select,
+.modal textarea,
+.form-grid input,
+.form-grid select,
+.form-grid textarea{
+  min-height:34px!important;
+  height:auto!important;
+  padding:7px 10px!important;
+  font-size:13px!important;
+  font-weight:400!important;
+  border-radius:8px!important;
+  border:1px solid #b7d09a!important;
+  background:#fff!important;
+  color:#193e23!important;
+  box-shadow:none!important;
+}
+.modal textarea,
+.form-grid textarea{
+  min-height:84px!important;
+  line-height:1.45!important;
+  resize:vertical;
+}
+.modal-foot{
+  padding:12px 16px!important;
+  gap:8px!important;
+  background:#fbfcf8!important;
+  border-top:1px solid #d5e3c8!important;
+  box-shadow:none!important;
+}
+.modal-foot .primary,
+.modal-foot .secondary,
+.modal-foot button{
+  min-height:34px!important;
+  min-width:0!important;
+  padding:7px 14px!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  border-radius:8px!important;
+}
+.employee-form-backdrop .modal{max-height:min(88dvh,760px)!important}
+.employee-form-backdrop .form-body{max-height:min(58vh,480px)!important}
+.detail-grid span{font-size:11px!important}
+.detail-grid strong{font-size:13px!important;font-weight:500!important}
+
+@media(max-width:760px){
+  .modal-backdrop{padding:10px!important}
+  .modal,
+  .employee-form-backdrop .modal,
+  .record-form-backdrop .modal{
+    width:100%!important;
+    max-height:calc(100dvh - 20px)!important;
+    border-radius:12px!important;
+  }
+  .modal-head{padding:12px 14px!important}
+  .modal-head h2{font-size:16px!important}
+  .form-body{padding:12px 14px!important}
+  .modal-foot{padding:10px 14px!important}
+  .form-grid{grid-template-columns:1fr!important;gap:10px!important}
 }
 

@@ -72,19 +72,6 @@
                 <button type="button" class="icon-action action-menu-btn" onclick="toggleActionMenu(this)" title="More actions" aria-label="More actions">⋮</button>
                 <div class="header-dropdown action-dropdown">
                   <a class="header-dropdown-row" href="{{ url_for('modules.employee_profile', record_id=row.id) }}"><strong>Open profile</strong><span>Full employee workspace</span></a>
-                  <button type="button" class="header-dropdown-row" data-app-open="{{ row.id }}" data-name="{{ row.name }}" data-code="{{ row.employee_code }}" data-allowed="{{ '1' if row.app_allowed else '0' }}" data-employment="{{ row.employment_status }}" data-pin="{{ row.reveal_pin }}"><strong>App access</strong><span>Allow / block · send login</span></button>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='leave', employee=row.emp_ref) }}"><strong>Leave</strong><span>Requests · approve / reject</span></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='shifts', employee=row.emp_ref) }}"><strong>Assign shift</strong><span>Schedule &amp; rest day</span></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='documents', employee=row.emp_ref) }}"><strong>Documents &amp; expiry</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='documentRenewals', employee=row.emp_ref) }}"><strong>Document renewals</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='letters', employee=row.emp_ref) }}"><strong>Letters &amp; certificates</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='certificateRequests', employee=row.emp_ref) }}"><strong>Certificate requests</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='helpDesk', employee=row.emp_ref) }}"><strong>HR help desk</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='resignations', employee=row.emp_ref) }}"><strong>Resignations &amp; clearance</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='finalSettlements', employee=row.emp_ref) }}"><strong>Final settlement (F&amp;F)</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='exitReport', employee=row.emp_ref) }}"><strong>Exit report</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='performance', employee=row.emp_ref) }}"><strong>Performance</strong></a>
-                  <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='disciplinary', employee=row.emp_ref) }}"><strong>Disciplinary</strong></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='devices', employee=row.emp_ref) }}"><strong>Face &amp; fingerprint</strong></a>
                   <a class="header-dropdown-row" href="{{ url_for('modules.module_list', kind='gratuity') }}"><strong>End of service</strong></a>
                 </div>
